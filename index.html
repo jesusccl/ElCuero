@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Augusto vs El Cuero - RPG</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Pantalla de inicio -->
+        <div id="title-screen">
+            <div class="title-content">
+                <div class="title-flames">🔥🔥🔥</div>
+                <h1 class="game-title">AUGUSTO</h1>
+                <h2 class="game-subtitle">vs</h2>
+                <h1 class="game-title villain-title">EL CUERO</h1>
+                <div class="title-flames">🔥🔥🔥</div>
+                <p class="title-tagline">La oscuridad ha despertado...</p>
+                <button id="btn-start" class="menu-btn">⚔️ NUEVA AVENTURA</button>
+                <button id="btn-controls" class="menu-btn">🎮 CONTROLES</button>
+                <div id="controls-panel" class="hidden">
+                    <p>🖥️ <strong>PC:</strong> WASD/Flechas = Mover | ESPACIO = Atacar | E = Interactuar | I = Inventario | M = Mapa</p>
+                    <p>📱 <strong>Móvil:</strong> Joystick = Mover | Botones en pantalla</p>
+                </div>
+                <p class="title-footer">Una aventura de Augusto, el Caballero Legendario</p>
+            </div>
+        </div>
+
+        <!-- Canvas del juego -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div id="hud-top">
+                <div id="player-info">
+                    <span id="player-name">⚔️ Sir Augusto</span>
+                    <span id="player-level">Nv. 1</span>
+                    <div id="health-bar-container">
+                        <div id="health-bar"></div>
+                        <span id="health-text">100/100</span>
+                    </div>
+                    <div id="exp-bar-container">
+                        <div id="exp-bar"></div>
+                        <span id="exp-text">EXP: 0/100</span>
+                    </div>
+                    <div id="mana-bar-container">
+                        <div id="mana-bar"></div>
+                        <span id="mana-text">MP: 50/50</span>
+                    </div>
+                </div>
+                <div id="zone-info">
+                    <span id="zone-name">Aldea de Augusto</span>
+                </div>
+                <div id="gold-info">
+                    <span id="gold-text">💰 0</span>
+                </div>
+            </div>
+
+            <!-- Diálogos -->
+            <div id="dialog-box" class="hidden">
+                <div id="dialog-portrait"></div>
+                <div id="dialog-content">
+                    <span id="dialog-speaker"></span>
+                    <p id="dialog-text"></p>
+                </div>
+                <span id="dialog-continue">▼ Continuar</span>
+            </div>
+
+            <!-- Inventario -->
+            <div id="inventory-panel" class="hidden">
+                <h3>🎒 Inventario de Augusto</h3>
+                <div id="inventory-grid"></div>
+                <div id="inventory-stats">
+                    <p>⚔️ ATK: <span id="stat-atk">10</span></p>
+                    <p>🛡️ DEF: <span id="stat-def">5</span></p>
+                    <p>⚡ VEL: <span id="stat-spd">3</span></p>
+                </div>
+                <button id="btn-close-inv" class="game-btn">Cerrar</button>
+            </div>
+
+            <!-- Minimapa -->
+            <div id="minimap">
+                <canvas id="minimap-canvas" width="150" height="150"></canvas>
+            </div>
+
+            <!-- Controles móviles -->
+            <div id="mobile-controls">
+                <div id="joystick-zone">
+                    <div id="joystick-base">
+                        <div id="joystick-thumb"></div>
+                    </div>
+                </div>
+                <div id="action-buttons">
+                    <button id="btn-attack" class="action-btn attack-btn">⚔️</button>
+                    <button id="btn-interact" class="action-btn interact-btn">💬</button>
+                    <button id="btn-inventory" class="action-btn inv-btn">🎒</button>
+                    <button id="btn-special" class="action-btn special-btn">✨</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de batalla -->
+        <div id="battle-overlay" class="hidden">
+            <div id="battle-message"></div>
+        </div>
+
+        <!-- Pantalla de Game Over -->
+        <div id="gameover-screen" class="hidden">
+            <h1>💀 Has Caído...</h1>
+            <p>Pero la leyenda de Augusto no termina aquí...</p>
+            <button id="btn-retry" class="menu-btn">⚔️ Intentar de nuevo</button>
+        </div>
+
+        <!-- Pantalla de Victoria -->
+        <div id="victory-screen" class="hidden">
+            <h1>🏆 ¡VICTORIA!</h1>
+            <p>¡Sir Augusto ha derrotado a El Cuero!</p>
+            <p>La paz ha vuelto al reino...</p>
+            <p class="victory-sub">¡Eres un verdadero héroe, Augusto!</p>
+            <button id="btn-play-again" class="menu-btn">🔄 Jugar de nuevo</button>
+        </div>
+    </div>
+
+    <script src="js/map.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/items.js"></script>
+    <script src="js/npc.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/combat.js"></script>
+    <script src="js/hud.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
