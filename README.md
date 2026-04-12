@@ -1,2 +1,2 @@
-# primera
-mi primera programación
+# ElCuero
+RPG del Augusto vs El cuero.
