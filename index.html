@@ -3,133 +3,922 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Augusto vs El Cuero - RPG</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Augusto vs El Cuero</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Press+Start+2P&display=swap');
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#0a0a0a; overflow:hidden; font-family:'Press Start 2P',cursive; color:#e0d5c1; touch-action:none; -webkit-user-select:none; user-select:none; }
+        #game-container { width:100vw; height:100vh; position:relative; overflow:hidden; }
+        canvas#game-canvas { display:block; width:100%; height:100%; image-rendering:pixelated; }
+        .hidden { display:none!important; }
+
+        /* TITLE */
+        #title-screen { position:absolute; top:0;left:0;width:100%;height:100%; background:radial-gradient(ellipse at center,#1a0a0a 0%,#0a0000 60%,#000 100%); display:flex;align-items:center;justify-content:center;z-index:100; animation:flicker 3s infinite alternate; }
+        @keyframes flicker { 0%,100%{background:radial-gradient(ellipse at center,#1a0a0a 0%,#0a0000 60%,#000 100%)} 50%{background:radial-gradient(ellipse at center,#2a1010 0%,#100505 60%,#000 100%)} }
+        .title-content{text-align:center;padding:20px}
+        .title-flames{font-size:2rem;animation:fireAnim .5s infinite alternate}
+        @keyframes fireAnim{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.1);filter:brightness(1.3)}}
+        .game-title{font-family:'MedievalSharp',cursive;font-size:clamp(2rem,8vw,5rem);color:#f4c842;text-shadow:0 0 20px #f4a742,0 0 40px #e74c3c,2px 2px 0 #000;letter-spacing:4px}
+        .villain-title{color:#e74c3c;text-shadow:0 0 20px #c0392b,0 0 40px #8e0000,2px 2px 0 #000}
+        .game-subtitle{font-family:'MedievalSharp',cursive;font-size:clamp(1rem,4vw,2rem);color:#888;margin:10px 0}
+        .title-tagline{font-size:clamp(.5rem,2vw,.8rem);color:#c0392b;margin:15px 0;animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+        .menu-btn{display:block;margin:12px auto;padding:12px 30px;font-family:'Press Start 2P',cursive;font-size:clamp(.6rem,2vw,.9rem);color:#f4c842;background:linear-gradient(180deg,#2a1a0a,#1a0a00);border:2px solid #f4a742;border-radius:4px;cursor:pointer;transition:all .2s;text-shadow:1px 1px 0 #000}
+        .menu-btn:hover{background:linear-gradient(180deg,#3a2a1a,#2a1a0a);transform:scale(1.05);box-shadow:0 0 15px rgba(244,167,66,.5)}
+        .title-footer{font-size:clamp(.4rem,1.5vw,.6rem);color:#665533;margin-top:20px}
+        #controls-panel{background:rgba(0,0,0,.7);border:1px solid #444;padding:15px;margin:10px auto;max-width:500px;border-radius:4px;font-size:.55rem;line-height:1.8}
+
+        /* HUD */
+        #hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+        #hud>*{pointer-events:auto}
+        #hud-top{display:flex;justify-content:space-between;align-items:flex-start;padding:10px;gap:10px}
+        #player-info{background:rgba(0,0,0,.8);border:1px solid #555;border-radius:4px;padding:8px 12px;min-width:200px}
+        #player-name{font-size:.7rem;color:#f4c842;display:block;margin-bottom:4px}
+        #player-level{font-size:.55rem;color:#aaa}
+        #health-bar-container,#exp-bar-container,#mana-bar-container{width:100%;height:14px;background:#222;border:1px solid #555;border-radius:2px;margin-top:4px;position:relative}
+        #health-bar{width:100%;height:100%;background:linear-gradient(90deg,#c0392b,#e74c3c);border-radius:2px;transition:width .3s}
+        #mana-bar{width:100%;height:100%;background:linear-gradient(90deg,#2a60c0,#4a90e7);border-radius:2px;transition:width .3s}
+        #exp-bar-container{height:10px}
+        #exp-bar{width:0%;height:100%;background:linear-gradient(90deg,#27ae60,#2ecc71);border-radius:2px;transition:width .3s}
+        #health-text,#exp-text,#mana-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:.4rem;text-shadow:1px 1px 0 #000;white-space:nowrap}
+        #zone-info{background:rgba(0,0,0,.7);border:1px solid #555;border-radius:4px;padding:6px 14px}
+        #zone-name{font-size:.6rem;color:#e0d5c1}
+        #gold-info{background:rgba(0,0,0,.7);border:1px solid #555;border-radius:4px;padding:6px 12px}
+        #gold-text{font-size:.65rem;color:#f4c842}
+        #minimap{position:absolute;top:80px;right:10px;border:2px solid #555;border-radius:4px;background:rgba(0,0,0,.7);overflow:hidden}
+
+        /* DIALOG */
+        #dialog-box{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);width:min(90%,600px);background:rgba(10,5,0,.95);border:2px solid #f4a742;border-radius:6px;padding:15px;display:flex;gap:12px;align-items:center;z-index:20}
+        #dialog-portrait{width:60px;height:60px;border:2px solid #888;border-radius:4px;background:#222;display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0}
+        #dialog-content{flex:1}
+        #dialog-speaker{font-size:.6rem;color:#f4c842;display:block;margin-bottom:6px}
+        #dialog-text{font-size:.55rem;line-height:1.6;color:#e0d5c1}
+        #dialog-continue{position:absolute;bottom:5px;right:10px;font-size:.45rem;color:#888;animation:pulse 1s infinite}
+
+        /* INVENTORY */
+        #inventory-panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,5,0,.95);border:2px solid #f4a742;border-radius:6px;padding:20px;min-width:300px;z-index:50}
+        #inventory-panel h3{text-align:center;color:#f4c842;font-size:.8rem;margin-bottom:15px}
+        #inventory-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:15px}
+        .inv-slot{width:48px;height:48px;background:rgba(50,30,10,.8);border:1px solid #555;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;cursor:pointer;position:relative}
+        .inv-slot:hover{border-color:#f4a742;background:rgba(80,50,20,.8)}
+        .inv-slot .item-count{position:absolute;bottom:1px;right:3px;font-size:.4rem;color:#fff;text-shadow:1px 1px 0 #000}
+        .inv-slot.equipped{border-color:#f4c842;box-shadow:0 0 6px rgba(244,200,66,.4)}
+        #inventory-stats{border-top:1px solid #444;padding-top:10px;font-size:.55rem;line-height:1.8}
+        .game-btn{display:block;margin:10px auto 0;padding:8px 20px;font-family:'Press Start 2P',cursive;font-size:.55rem;color:#f4c842;background:#1a0a00;border:1px solid #f4a742;border-radius:4px;cursor:pointer}
+
+        /* MOBILE */
+        #mobile-controls{display:none;position:absolute;bottom:0;left:0;width:100%;height:180px;pointer-events:none}
+        #joystick-zone{position:absolute;left:20px;bottom:20px;pointer-events:auto}
+        #joystick-base{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);position:relative}
+        #joystick-thumb{width:50px;height:50px;border-radius:50%;background:rgba(244,200,66,.4);border:2px solid rgba(244,200,66,.6);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+        #action-buttons{position:absolute;right:20px;bottom:20px;display:flex;gap:10px;flex-wrap:wrap;width:140px;justify-content:center;pointer-events:auto}
+        .action-btn{width:55px;height:55px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .attack-btn{border-color:rgba(231,76,60,.6);background:rgba(231,76,60,.2)}
+        .special-btn{border-color:rgba(52,152,219,.6);background:rgba(52,152,219,.2)}
+
+        /* BATTLE */
+        #battle-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:40}
+        #battle-message{font-family:'MedievalSharp',cursive;font-size:clamp(1.5rem,5vw,3rem);color:#e74c3c;text-shadow:0 0 20px #c0392b;animation:battleFlash .8s ease-out}
+        @keyframes battleFlash{from{transform:scale(2);opacity:0}to{transform:scale(1);opacity:1}}
+
+        /* GAMEOVER / VICTORY */
+        #gameover-screen,#victory-screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;text-align:center;padding:20px}
+        #gameover-screen{background:radial-gradient(ellipse at center,#1a0000 0%,#000 100%)}
+        #gameover-screen h1{font-family:'MedievalSharp',cursive;font-size:clamp(2rem,8vw,4rem);color:#e74c3c;text-shadow:0 0 30px #c0392b}
+        #gameover-screen p{font-size:.7rem;color:#888;margin:15px 0}
+        #victory-screen{background:radial-gradient(ellipse at center,#1a1a00 0%,#0a0a00 50%,#000 100%)}
+        #victory-screen h1{font-family:'MedievalSharp',cursive;font-size:clamp(2rem,8vw,4rem);color:#f4c842;text-shadow:0 0 30px #f4a742;animation:victoryGlow 1s infinite alternate}
+        @keyframes victoryGlow{from{text-shadow:0 0 20px #f4a742}to{text-shadow:0 0 40px #f4c842,0 0 60px #f4a742}}
+        #victory-screen p{font-size:.7rem;margin:10px 0}
+        .victory-sub{color:#f4c842!important;font-size:.9rem!important;margin-top:20px!important}
+
+        @media(max-width:768px){
+            #mobile-controls{display:block}
+            #minimap{display:none}
+            #hud-top{flex-wrap:wrap;padding:5px}
+            #player-info{min-width:150px;padding:5px 8px}
+            #dialog-box{bottom:190px}
+        }
+        @media(hover:none){#mobile-controls{display:block}}
+    </style>
 </head>
 <body>
-    <div id="game-container">
-        <!-- Pantalla de inicio -->
-        <div id="title-screen">
-            <div class="title-content">
-                <div class="title-flames">🔥🔥🔥</div>
-                <h1 class="game-title">AUGUSTO</h1>
-                <h2 class="game-subtitle">vs</h2>
-                <h1 class="game-title villain-title">EL CUERO</h1>
-                <div class="title-flames">🔥🔥🔥</div>
-                <p class="title-tagline">La oscuridad ha despertado...</p>
-                <button id="btn-start" class="menu-btn">⚔️ NUEVA AVENTURA</button>
-                <button id="btn-controls" class="menu-btn">🎮 CONTROLES</button>
-                <div id="controls-panel" class="hidden">
-                    <p>🖥️ <strong>PC:</strong> WASD/Flechas = Mover | ESPACIO = Atacar | E = Interactuar | I = Inventario | M = Mapa</p>
-                    <p>📱 <strong>Móvil:</strong> Joystick = Mover | Botones en pantalla</p>
-                </div>
-                <p class="title-footer">Una aventura de Augusto, el Caballero Legendario</p>
+<div id="game-container">
+    <div id="title-screen">
+        <div class="title-content">
+            <div class="title-flames">🔥🔥🔥</div>
+            <h1 class="game-title">AUGUSTO</h1>
+            <h2 class="game-subtitle">vs</h2>
+            <h1 class="game-title villain-title">EL CUERO</h1>
+            <div class="title-flames">🔥🔥🔥</div>
+            <p class="title-tagline">La oscuridad ha despertado...</p>
+            <button id="btn-start" class="menu-btn">⚔️ NUEVA AVENTURA</button>
+            <button id="btn-controls" class="menu-btn">🎮 CONTROLES</button>
+            <div id="controls-panel" class="hidden">
+                <p>🖥️ <strong>PC:</strong> WASD/Flechas=Mover | ESPACIO=Atacar | E=Interactuar | I=Inventario</p>
+                <p>📱 <strong>Móvil:</strong> Joystick + Botones</p>
             </div>
-        </div>
-
-        <!-- Canvas del juego -->
-        <canvas id="game-canvas"></canvas>
-
-        <!-- HUD -->
-        <div id="hud" class="hidden">
-            <div id="hud-top">
-                <div id="player-info">
-                    <span id="player-name">⚔️ Sir Augusto</span>
-                    <span id="player-level">Nv. 1</span>
-                    <div id="health-bar-container">
-                        <div id="health-bar"></div>
-                        <span id="health-text">100/100</span>
-                    </div>
-                    <div id="exp-bar-container">
-                        <div id="exp-bar"></div>
-                        <span id="exp-text">EXP: 0/100</span>
-                    </div>
-                    <div id="mana-bar-container">
-                        <div id="mana-bar"></div>
-                        <span id="mana-text">MP: 50/50</span>
-                    </div>
-                </div>
-                <div id="zone-info">
-                    <span id="zone-name">Aldea de Augusto</span>
-                </div>
-                <div id="gold-info">
-                    <span id="gold-text">💰 0</span>
-                </div>
-            </div>
-
-            <!-- Diálogos -->
-            <div id="dialog-box" class="hidden">
-                <div id="dialog-portrait"></div>
-                <div id="dialog-content">
-                    <span id="dialog-speaker"></span>
-                    <p id="dialog-text"></p>
-                </div>
-                <span id="dialog-continue">▼ Continuar</span>
-            </div>
-
-            <!-- Inventario -->
-            <div id="inventory-panel" class="hidden">
-                <h3>🎒 Inventario de Augusto</h3>
-                <div id="inventory-grid"></div>
-                <div id="inventory-stats">
-                    <p>⚔️ ATK: <span id="stat-atk">10</span></p>
-                    <p>🛡️ DEF: <span id="stat-def">5</span></p>
-                    <p>⚡ VEL: <span id="stat-spd">3</span></p>
-                </div>
-                <button id="btn-close-inv" class="game-btn">Cerrar</button>
-            </div>
-
-            <!-- Minimapa -->
-            <div id="minimap">
-                <canvas id="minimap-canvas" width="150" height="150"></canvas>
-            </div>
-
-            <!-- Controles móviles -->
-            <div id="mobile-controls">
-                <div id="joystick-zone">
-                    <div id="joystick-base">
-                        <div id="joystick-thumb"></div>
-                    </div>
-                </div>
-                <div id="action-buttons">
-                    <button id="btn-attack" class="action-btn attack-btn">⚔️</button>
-                    <button id="btn-interact" class="action-btn interact-btn">💬</button>
-                    <button id="btn-inventory" class="action-btn inv-btn">🎒</button>
-                    <button id="btn-special" class="action-btn special-btn">✨</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Pantalla de batalla -->
-        <div id="battle-overlay" class="hidden">
-            <div id="battle-message"></div>
-        </div>
-
-        <!-- Pantalla de Game Over -->
-        <div id="gameover-screen" class="hidden">
-            <h1>💀 Has Caído...</h1>
-            <p>Pero la leyenda de Augusto no termina aquí...</p>
-            <button id="btn-retry" class="menu-btn">⚔️ Intentar de nuevo</button>
-        </div>
-
-        <!-- Pantalla de Victoria -->
-        <div id="victory-screen" class="hidden">
-            <h1>🏆 ¡VICTORIA!</h1>
-            <p>¡Sir Augusto ha derrotado a El Cuero!</p>
-            <p>La paz ha vuelto al reino...</p>
-            <p class="victory-sub">¡Eres un verdadero héroe, Augusto!</p>
-            <button id="btn-play-again" class="menu-btn">🔄 Jugar de nuevo</button>
+            <p class="title-footer">Una aventura de Augusto, el Caballero Legendario</p>
         </div>
     </div>
 
-    <script src="js/map.js"></script>
-    <script src="js/camera.js"></script>
-    <script src="js/items.js"></script>
-    <script src="js/npc.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/enemy.js"></script>
-    <script src="js/combat.js"></script>
-    <script src="js/hud.js"></script>
-    <script src="js/game.js"></script>
-</body>
-</html>
+    <canvas id="game-canvas"></canvas>
+
+    <div id="hud" class="hidden">
+        <div id="hud-top">
+            <div id="player-info">
+                <span id="player-name">⚔️ Sir Augusto</span>
+                <span id="player-level">Nv. 1</span>
+                <div id="health-bar-container"><div id="health-bar"></div><span id="health-text">100/100</span></div>
+                <div id="mana-bar-container"><div id="mana-bar"></div><span id="mana-text">MP: 50/50</span></div>
+                <div id="exp-bar-container"><div id="exp-bar"></div><span id="exp-text">EXP: 0/100</span></div>
+            </div>
+            <div id="zone-info"><span id="zone-name">Aldea de Augusto</span></div>
+            <div id="gold-info"><span id="gold-text">💰 0</span></div>
+        </div>
+        <div id="dialog-box" class="hidden">
+            <div id="dialog-portrait"></div>
+            <div id="dialog-content"><span id="dialog-speaker"></span><p id="dialog-text"></p></div>
+            <span id="dialog-continue">▼ Continuar</span>
+        </div>
+        <div id="inventory-panel" class="hidden">
+            <h3>🎒 Inventario de Augusto</h3>
+            <div id="inventory-grid"></div>
+            <div id="inventory-stats">
+                <p>⚔️ ATK: <span id="stat-atk">10</span></p>
+                <p>🛡️ DEF: <span id="stat-def">5</span></p>
+            </div>
+            <button id="btn-close-inv" class="game-btn">Cerrar [I]</button>
+        </div>
+        <div id="minimap"><canvas id="minimap-canvas" width="150" height="150"></canvas></div>
+        <div id="mobile-controls">
+            <div id="joystick-zone"><div id="joystick-base"><div id="joystick-thumb"></div></div></div>
+            <div id="action-buttons">
+                <button id="btn-attack" class="action-btn attack-btn">⚔️</button>
+                <button id="btn-interact" class="action-btn" style="border-color:rgba(46,204,113,.6);background:rgba(46,204,113,.2)">💬</button>
+                <button id="btn-inventory" class="action-btn" style="border-color:rgba(241,196,15,.6);background:rgba(241,196,15,.2)">🎒</button>
+                <button id="btn-special" class="action-btn special-btn">✨</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="battle-overlay" class="hidden"><div id="battle-message"></div></div>
+    <div id="gameover-screen" class="hidden">
+        <h1>💀 Has Caído...</h1>
+        <p>Pero la leyenda de Augusto no termina aquí...</p>
+        <button id="btn-retry" class="menu-btn">⚔️ Intentar de nuevo</button>
+    </div>
+    <div id="victory-screen" class="hidden">
+        <h1>🏆 ¡VICTORIA!</h1>
+        <p>¡Sir Augusto ha derrotado a El Cuero!</p>
+        <p>La paz ha vuelto al reino...</p>
+        <p class="victory-sub">¡Eres un verdadero héroe, Augusto!</p>
+        <button id="btn-play-again" class="menu-btn">🔄 Jugar de nuevo</button>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTES
+// ============================================================
+const TILE = 48;
+const T = { GRASS:0,WALL:1,FLOOR:2,WATER:3,PATH:4,DOOR:5,LAVA:6,TREE:7,DARK:8,CHEST:9,PORTAL:10,BRIDGE:11,BONES:12,SKWALL:13,THRONE:14,BUSH:15 };
+const TILE_PROPS = {
+    [T.GRASS]:{solid:false,c1:'#2d5a1e',c2:'#3a6b2a'},
+    [T.WALL]:{solid:true,c1:'#4a4a4a',c2:'#3a3a3a'},
+    [T.FLOOR]:{solid:false,c1:'#8a7a5a',c2:'#7a6a4a'},
+    [T.WATER]:{solid:true,c1:'#1a5a8a',c2:'#2a6a9a',anim:true},
+    [T.PATH]:{solid:false,c1:'#9a8a6a',c2:'#8a7a5a'},
+    [T.DOOR]:{solid:false,c1:'#6a4a2a',c2:'#5a3a1a'},
+    [T.LAVA]:{solid:true,c1:'#cc3300',c2:'#ff5500',anim:true},
+    [T.TREE]:{solid:true,c1:'#1a4a0a',c2:'#2d5a1e'},
+    [T.DARK]:{solid:false,c1:'#3a2a1a',c2:'#2a1a0a'},
+    [T.CHEST]:{solid:true,c1:'#aa8a2a',c2:'#8a6a1a'},
+    [T.PORTAL]:{solid:false,c1:'#6a2aaa',c2:'#8a4acc',anim:true},
+    [T.BRIDGE]:{solid:false,c1:'#7a5a2a',c2:'#6a4a1a'},
+    [T.BONES]:{solid:false,c1:'#aaa89a',c2:'#8a887a'},
+    [T.SKWALL]:{solid:true,c1:'#5a4a4a',c2:'#4a3a3a'},
+    [T.THRONE]:{solid:true,c1:'#8a2a2a',c2:'#6a1a1a'},
+    [T.BUSH]:{solid:true,c1:'#2a6a1a',c2:'#1a5a0a'}
+};
+
+// ============================================================
+// ITEMS
+// ============================================================
+const ITEMS = {
+    health_potion:{name:'Poción de Vida',icon:'❤️',type:'consumable',heal:30,stack:true},
+    mana_potion:{name:'Poción de Maná',icon:'💙',type:'consumable',mana:25,stack:true},
+    iron_sword:{name:'Espada de Hierro',icon:'⚔️',type:'weapon',atk:5},
+    steel_sword:{name:'Espada de Acero',icon:'🗡️',type:'weapon',atk:12},
+    augusto_blade:{name:'Hoja de Augusto',icon:'✨',type:'weapon',atk:20},
+    leather_armor:{name:'Armadura de Cuero',icon:'🛡️',type:'armor',def:3},
+    knight_armor:{name:'Armadura de Caballero',icon:'🏰',type:'armor',def:8},
+    gold_coin:{name:'Oro',icon:'💰',type:'currency',value:10,stack:true},
+    augusto_amulet:{name:'Amuleto de Augusto',icon:'📿',type:'accessory',atk:3,def:3}
+};
+
+const CHEST_LOOT = {
+    village:['health_potion','augusto_amulet','gold_coin'],
+    forest:['iron_sword','health_potion','mana_potion','leather_armor','gold_coin'],
+    dungeon:['steel_sword','knight_armor','health_potion','mana_potion','augusto_blade'],
+    bossRoom:['health_potion','mana_potion']
+};
+
+// ============================================================
+// MAP GENERATION
+// ============================================================
+const MAPS = {};
+
+function generateMaps() {
+    // VILLAGE
+    let v = [];
+    for(let y=0;y<25;y++){v[y]=[];for(let x=0;x<30;x++){
+        if(x===0||x===29||y===0||y===24) v[y][x]=T.TREE;
+        else if(x>=3&&x<=6&&y>=3&&y<=6) v[y][x]=T.WATER;
+        else if(x>=10&&x<=15&&y>=3&&y<=7){
+            if(y===3||y===7||x===10||x===15) v[y][x]=T.WALL;
+            else v[y][x]=T.FLOOR;
+        }
+        else if(x>=20&&x<=25&&y>=3&&y<=7){
+            if(y===3||y===7||x===20||x===25) v[y][x]=T.WALL;
+            else v[y][x]=T.FLOOR;
+        }
+        else if(x>=13&&x<=15&&y>=7) v[y][x]=T.PATH;
+        else if(y>=12&&y<=13&&x>=3&&x<=27) v[y][x]=T.PATH;
+        else if(x===22&&y===10) v[y][x]=T.CHEST;
+        else if((x===5&&y===10)||(x===25&&y===15)||(x===8&&y===18)) v[y][x]=T.BUSH;
+        else v[y][x]=T.GRASS;
+    }}
+    v[12][29]=T.PATH;v[13][29]=T.PATH;
+    MAPS.village={name:"Aldea de Augusto",w:30,h:25,sx:14,sy:20,data:v,ambient:'rgba(0,0,0,0)'};
+
+    // FOREST
+    let f=[];
+    for(let y=0;y<30;y++){f[y]=[];for(let x=0;x<35;x++){
+        if(x===0||x===34||y===0||y===29) f[y][x]=T.TREE;
+        else if(Math.random()<0.22&&!(x<=2&&y>=14&&y<=16)&&!(x>=32&&y>=14&&y<=16)) f[y][x]=T.TREE;
+        else f[y][x]=T.GRASS;
+    }}
+    for(let x=0;x<35;x++){f[14][x]=T.PATH;f[15][x]=T.PATH;if(f[13]&&Math.random()<.3)f[13][x]=T.GRASS;if(f[16]&&Math.random()<.3)f[16][x]=T.GRASS;}
+    for(let x=10;x<15;x++)for(let y=8;y<12;y++)f[y][x]=T.GRASS;
+    for(let x=20;x<26;x++)for(let y=18;y<23;y++)f[y][x]=T.GRASS;
+    f[10][25]=T.LAVA;f[10][26]=T.LAVA;f[11][25]=T.LAVA;
+    f[14][0]=T.PATH;f[15][0]=T.PATH;
+    f[14][34]=T.PORTAL;f[15][34]=T.PORTAL;
+    f[9][12]=T.CHEST;f[20][22]=T.CHEST;
+    MAPS.forest={name:"Bosque Oscuro",w:35,h:30,sx:1,sy:15,data:f,ambient:'rgba(0,20,0,0.25)'};
+
+    // DUNGEON
+    let d=[];
+    for(let y=0;y<30;y++){d[y]=[];for(let x=0;x<30;x++)d[y][x]=T.SKWALL;}
+    for(let y=24;y<29;y++)for(let x=12;x<18;x++)d[y][x]=T.DARK;
+    for(let y=15;y<25;y++){d[y][14]=T.DARK;d[y][15]=T.DARK;}
+    for(let y=10;y<16;y++)for(let x=10;x<20;x++)d[y][x]=T.DARK;
+    d[12][12]=T.BONES;d[13][15]=T.BONES;d[11][17]=T.BONES;
+    for(let y=5;y<11;y++){d[y][14]=T.DARK;d[y][15]=T.DARK;}
+    for(let y=10;y<16;y++)for(let x=22;x<28;x++)d[y][x]=T.DARK;
+    for(let x=19;x<23;x++){d[12][x]=T.DARK;d[13][x]=T.DARK;}
+    d[11][25]=T.CHEST;d[14][24]=T.CHEST;
+    for(let y=10;y<16;y++)for(let x=2;x<8;x++)d[y][x]=T.DARK;
+    for(let x=7;x<11;x++){d[12][x]=T.DARK;d[13][x]=T.DARK;}
+    d[12][4]=T.BONES;d[11][5]=T.CHEST;
+    d[5][14]=T.PORTAL;d[5][15]=T.PORTAL;
+    MAPS.dungeon={name:"Mazmorra de Huesos",w:30,h:30,sx:15,sy:27,data:d,ambient:'rgba(0,0,0,0.35)'};
+
+    // BOSS ROOM
+    let b=[];
+    for(let y=0;y<20;y++){b[y]=[];for(let x=0;x<25;x++){
+        if(x===0||x===24||y===0||y===19) b[y][x]=T.SKWALL;
+        else b[y][x]=T.DARK;
+    }}
+    for(let x=1;x<24;x++){b[1][x]=T.LAVA;b[18][x]=T.LAVA;}
+    for(let y=1;y<19;y++){b[y][1]=T.LAVA;b[y][23]=T.LAVA;}
+    for(let x=2;x<23;x++)for(let y=2;y<18;y++)b[y][x]=T.DARK;
+    b[3][12]=T.THRONE;
+    b[6][5]=T.LAVA;b[6][19]=T.LAVA;b[12][5]=T.LAVA;b[12][19]=T.LAVA;
+    b[8][8]=T.BONES;b[8][16]=T.BONES;b[14][8]=T.BONES;b[14][16]=T.BONES;
+    b[18][12]=T.DARK;b[19][12]=T.DARK;
+    MAPS.bossRoom={name:"Guarida de El Cuero",w:25,h:20,sx:12,sy:17,data:b,ambient:'rgba(30,0,0,0.35)'};
+}
+
+const EXITS = {
+    village:[{fx:29,fy1:12,fy2:13,to:'forest',tx:2,ty:15}],
+    forest:[{fx:0,fy1:14,fy2:15,to:'village',tx:28,ty:12},{fx:34,fy1:14,fy2:15,to:'dungeon',tx:15,ty:27}],
+    dungeon:[{fx:14,fy1:5,fy2:5,to:'bossRoom',tx:12,ty:16},{fx:15,fy1:5,fy2:5,to:'bossRoom',tx:12,ty:16}],
+    bossRoom:[]
+};
+
+// ============================================================
+// NPC DATA
+// ============================================================
+const NPC_DATA = {
+    village:[
+        {x:12,y:10,sprite:'👴',name:'Anciano Sabio',dialog:[
+            "¡Bienvenido, Sir Augusto! Eres el caballero elegido.",
+            "El Cuero ha despertado en su guarida oscura...",
+            "Ve al este, cruza el Bosque y la Mazmorra.",
+            "¡Que la luz te guíe, valiente Augusto!"
+        ]},
+        {x:22,y:12,sprite:'🧙',name:'Mago Mercader',dialog:[
+            "¡Hola, joven Augusto! Busca cofres en tu camino.",
+            "Usa pociones sabiamente contra El Cuero."
+        ]},
+        {x:8,y:14,sprite:'👦',name:'Niño de la Aldea',dialog:[
+            "¡Eres Sir Augusto! ¡Mi héroe favorito!",
+            "¡Cuando sea grande quiero ser como tú!"
+        ]}
+    ],
+    forest:[
+        {x:12,y:10,sprite:'🧝',name:'Elfo del Bosque',dialog:[
+            "Cuidado, Augusto... estas tierras están malditas.",
+            "El Cuero envió sus criaturas a este bosque.",
+            "El portal al este lleva a la Mazmorra de Huesos."
+        ]}
+    ],
+    dungeon:[
+        {x:14,y:26,sprite:'💀',name:'Espíritu',dialog:[
+            "Más allá del portal... está El Cuero.",
+            "Pocos han llegado tan lejos, Sir Augusto.",
+            "Prepárate bien antes de entrar..."
+        ]}
+    ],
+    bossRoom:[]
+};
+
+// ============================================================
+// ENEMY DATA
+// ============================================================
+const ENEMY_DATA = {
+    village:[],
+    forest:[
+        {x:12,y:9,type:'skeleton',name:'Esqueleto',hp:30,atk:5,def:2,exp:15,gold:5,speed:1},
+        {x:13,y:10,type:'skeleton',name:'Esqueleto',hp:30,atk:5,def:2,exp:15,gold:5,speed:1},
+        {x:22,y:20,type:'wolf',name:'Lobo Oscuro',hp:40,atk:8,def:3,exp:20,gold:8,speed:1.5},
+        {x:24,y:21,type:'wolf',name:'Lobo Oscuro',hp:40,atk:8,def:3,exp:20,gold:8,speed:1.5},
+        {x:18,y:14,type:'skeleton',name:'Esqueleto',hp:30,atk:5,def:2,exp:15,gold:5,speed:1},
+        {x:28,y:14,type:'wolf',name:'Lobo Oscuro',hp:40,atk:8,def:3,exp:20,gold:8,speed:1.5}
+    ],
+    dungeon:[
+        {x:14,y:22,type:'ghost',name:'Fantasma',hp:45,atk:10,def:4,exp:30,gold:12,speed:1.2},
+        {x:12,y:13,type:'skeleton',name:'Esq. Guerrero',hp:50,atk:12,def:5,exp:35,gold:15,speed:1},
+        {x:17,y:11,type:'ghost',name:'Fantasma',hp:45,atk:10,def:4,exp:30,gold:12,speed:1.2},
+        {x:25,y:12,type:'demon',name:'Demonio Menor',hp:60,atk:14,def:6,exp:45,gold:20,speed:1.3},
+        {x:4,y:13,type:'ghost',name:'Fantasma',hp:45,atk:10,def:4,exp:30,gold:12,speed:1.2},
+        {x:15,y:8,type:'demon',name:'Demonio Menor',hp:60,atk:14,def:6,exp:45,gold:20,speed:1.3}
+    ],
+    bossRoom:[
+        {x:12,y:5,type:'boss',name:'EL CUERO',hp:250,atk:22,def:10,exp:500,gold:100,speed:0.8,isBoss:true}
+    ]
+};
+
+// ============================================================
+// GAME ENGINE
+// ============================================================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Game State
+let game = {
+    state: 'title', // title, playing, dialog, inventory, gameover, victory
+    currentMap: 'village',
+    animTime: 0,
+    openedChests: new Set(),
+    floatingTexts: [],
+    particles: []
+};
+
+// Camera
+let cam = { x:0, y:0, shakeT:0, shakeM:0 };
+
+// Player
+let player = {
+    x:0, y:0, // pixel pos
+    w:TILE*0.7, h:TILE*0.7,
+    dir: 'down', // up down left right
+    speed: 3,
+    hp:100, maxHp:100,
+    mp:50, maxMp:50,
+    atk:10, def:5,
+    level:1, exp:0, expNext:100,
+    gold:0,
+    attacking:false, attackTimer:0, attackCooldown:0,
+    specialCooldown:0,
+    invincibleTimer:0,
+    animFrame:0, animTimer:0,
+    inventory: [], // {id, count}
+    equipped: {weapon:null, armor:null, accessory:null}
+};
+
+let enemies = [];
+let npcs = [];
+let dialogQueue = [];
+let dialogIndex = 0;
+let dialogSpeaker = '';
+let dialogPortrait = '';
+
+// Input
+let keys = {};
+let joystick = {active:false, dx:0, dy:0};
+let mobileAttack = false;
+let mobileInteract = false;
+let mobileSpecial = false;
+
+// ============================================================
+// INPUT HANDLERS
+// ============================================================
+document.addEventListener('keydown', e => { keys[e.code]=true; e.preventDefault(); });
+document.addEventListener('keyup', e => { keys[e.code]=false; });
+
+// Joystick
+const jBase = document.getElementById('joystick-base');
+const jThumb = document.getElementById('joystick-thumb');
+let jCenter = {x:0,y:0};
+
+function handleJoystickStart(e) {
+    const t = e.touches ? e.touches[0] : e;
+    const r = jBase.getBoundingClientRect();
+    jCenter = {x:r.left+r.width/2, y:r.top+r.height/2};
+    joystick.active = true;
+    handleJoystickMove(e);
+}
+
+function handleJoystickMove(e) {
+    if (!joystick.active) return;
+    const t = e.touches ? e.touches[0] : e;
+    let dx = t.clientX - jCenter.x;
+    let dy = t.clientY - jCenter.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const maxD = 50;
+    if (dist > maxD) { dx = dx/dist*maxD; dy = dy/dist*maxD; }
+    joystick.dx = dx / maxD;
+    joystick.dy = dy / maxD;
+    jThumb.style.transform = `translate(${dx-25}px, ${dy-25}px)`;
+}
+
+function handleJoystickEnd() {
+    joystick.active = false;
+    joystick.dx = 0;
+    joystick.dy = 0;
+    jThumb.style.transform = 'translate(-50%,-50%)';
+}
+
+jBase.addEventListener('touchstart', handleJoystickStart, {passive:false});
+jBase.addEventListener('touchmove', handleJoystickMove, {passive:false});
+jBase.addEventListener('touchend', handleJoystickEnd);
+jBase.addEventListener('mousedown', handleJoystickStart);
+document.addEventListener('mousemove', handleJoystickMove);
+document.addEventListener('mouseup', handleJoystickEnd);
+
+// Mobile buttons
+document.getElementById('btn-attack')?.addEventListener('touchstart', ()=>mobileAttack=true);
+document.getElementById('btn-attack')?.addEventListener('touchend', ()=>mobileAttack=false);
+document.getElementById('btn-interact')?.addEventListener('touchstart', ()=>mobileInteract=true);
+document.getElementById('btn-interact')?.addEventListener('touchend', ()=>mobileInteract=false);
+document.getElementById('btn-special')?.addEventListener('touchstart', ()=>mobileSpecial=true);
+document.getElementById('btn-special')?.addEventListener('touchend', ()=>mobileSpecial=false);
+document.getElementById('btn-inventory')?.addEventListener('click', ()=>toggleInventory());
+
+// ============================================================
+// INVENTORY FUNCTIONS
+// ============================================================
+function addItem(id, count=1) {
+    const item = ITEMS[id];
+    if(!item) return;
+    if(item.stack) {
+        const s = player.inventory.find(s=>s.id===id);
+        if(s) { s.count+=count; return; }
+    }
+    if(player.inventory.length < 15) {
+        player.inventory.push({id, count});
+    }
+    // Auto-equip weapon/armor if better
+    if(item.type==='weapon') {
+        const curr = player.equipped.weapon ? ITEMS[player.equipped.weapon] : null;
+        if(!curr || (item.atk||0) > (curr.atk||0)) player.equipped.weapon = id;
+    }
+    if(item.type==='armor') {
+        const curr = player.equipped.armor ? ITEMS[player.equipped.armor] : null;
+        if(!curr || (item.def||0) > (curr.def||0)) player.equipped.armor = id;
+    }
+    if(item.type==='accessory') player.equipped.accessory = id;
+}
+
+function useItem(index) {
+    if(index<0||index>=player.inventory.length) return;
+    const slot = player.inventory[index];
+    const item = ITEMS[slot.id];
+    if(item.type==='consumable') {
+        if(item.heal) { player.hp = Math.min(player.maxHp, player.hp+item.heal); addFloatingText(player.x+player.w/2, player.y, '+'+item.heal, '#2ecc71'); }
+        if(item.mana) { player.mp = Math.min(player.maxMp, player.mp+item.mana); addFloatingText(player.x+player.w/2, player.y, '+'+item.mana+' MP', '#3498db'); }
+        slot.count--;
+        if(slot.count<=0) player.inventory.splice(index,1);
+    } else if(item.type==='weapon') {
+        player.equipped.weapon = slot.id;
+    } else if(item.type==='armor') {
+        player.equipped.armor = slot.id;
+    } else if(item.type==='accessory') {
+        player.equipped.accessory = slot.id;
+    }
+    renderInventoryUI();
+}
+
+function getPlayerAtk() {
+    let a = player.atk;
+    if(player.equipped.weapon && ITEMS[player.equipped.weapon]) a += ITEMS[player.equipped.weapon].atk||0;
+    if(player.equipped.accessory && ITEMS[player.equipped.accessory]) a += ITEMS[player.equipped.accessory].atk||0;
+    return a;
+}
+function getPlayerDef() {
+    let d = player.def;
+    if(player.equipped.armor && ITEMS[player.equipped.armor]) d += ITEMS[player.equipped.armor].def||0;
+    if(player.equipped.accessory && ITEMS[player.equipped.accessory]) d += ITEMS[player.equipped.accessory].def||0;
+    return d;
+}
+
+function toggleInventory() {
+    const panel = document.getElementById('inventory-panel');
+    if(panel.classList.contains('hidden')) {
+        game.state = 'inventory';
+        panel.classList.remove('hidden');
+        renderInventoryUI();
+    } else {
+        game.state = 'playing';
+        panel.classList.add('hidden');
+    }
+}
+
+function renderInventoryUI() {
+    const grid = document.getElementById('inventory-grid');
+    grid.innerHTML = '';
+    for(let i=0;i<15;i++) {
+        const div = document.createElement('div');
+        div.className = 'inv-slot';
+        if(i < player.inventory.length) {
+            const s = player.inventory[i];
+            const item = ITEMS[s.id];
+            div.textContent = item.icon;
+            div.title = item.name;
+            if(s.count>1) { const c=document.createElement('span');c.className='item-count';c.textContent=s.count;div.appendChild(c); }
+            if(player.equipped.weapon===s.id||player.equipped.armor===s.id||player.equipped.accessory===s.id) div.classList.add('equipped');
+            div.addEventListener('click', ()=>useItem(i));
+        }
+        grid.appendChild(div);
+    }
+    document.getElementById('stat-atk').textContent = getPlayerAtk();
+    document.getElementById('stat-def').textContent = getPlayerDef();
+}
+
+// ============================================================
+// MAP FUNCTIONS
+// ============================================================
+function mapData() { return MAPS[game.currentMap]; }
+
+function isSolid(tx, ty) {
+    const m = mapData();
+    if(tx<0||tx>=m.w||ty<0||ty>=m.h) return true;
+    const t = m.data[ty][tx];
+    if(t===T.CHEST && game.openedChests.has(game.currentMap+'_'+tx+'_'+ty)) return false;
+    return TILE_PROPS[t]?.solid ?? false;
+}
+
+function checkExit(tx, ty) {
+    const exits = EXITS[game.currentMap]||[];
+    for(const e of exits) {
+        if(tx===e.fx && ty>=e.fy1 && ty<=e.fy2) return e;
+    }
+    return null;
+}
+
+function loadMap(mapId, px, py) {
+    const m = MAPS[mapId];
+    game.currentMap = mapId;
+    player.x = (px??m.sx)*TILE;
+    player.y = (py??m.sy)*TILE;
+    cam.x = player.x - W/2;
+    cam.y = player.y - H/2;
+
+    // Load enemies
+    enemies = (ENEMY_DATA[mapId]||[]).map(e => ({
+        ...e,
+        x: e.x*TILE, y: e.y*TILE,
+        startX: e.x*TILE, startY: e.y*TILE,
+        curHp: e.hp,
+        alive: true,
+        dir: 'down',
+        animFrame: 0,
+        animTimer: 0,
+        hitTimer: 0,
+        moveTimer: Math.random()*3,
+        aggroRange: e.isBoss ? 12*TILE : 6*TILE,
+        attackTimer: 0,
+        attackCooldown: e.isBoss ? 1.0 : 1.5
+    }));
+
+    // Load NPCs
+    npcs = (NPC_DATA[mapId]||[]).map(n => ({
+        ...n,
+        px: n.x*TILE, py: n.y*TILE
+    }));
+
+    document.getElementById('zone-name').textContent = m.name;
+}
+
+// ============================================================
+// FLOATING TEXT & PARTICLES
+// ============================================================
+function addFloatingText(x, y, text, color='#e74c3c') {
+    game.floatingTexts.push({x, y, text, color, life:1.0});
+}
+
+function addParticles(x, y, color, count=5) {
+    for(let i=0;i<count;i++) {
+        game.particles.push({
+            x, y,
+            vx: (Math.random()-0.5)*100,
+            vy: (Math.random()-0.5)*100,
+            life: 0.5 + Math.random()*0.5,
+            color,
+            size: 2+Math.random()*3
+        });
+    }
+}
+
+// ============================================================
+// DIALOG
+// ============================================================
+function showDialog(speaker, portrait, texts) {
+    if(game.state==='dialog') return;
+    game.state = 'dialog';
+    dialogQueue = texts;
+    dialogIndex = 0;
+    dialogSpeaker = speaker;
+    dialogPortrait = portrait;
+    updateDialogUI();
+    document.getElementById('dialog-box').classList.remove('hidden');
+}
+
+function updateDialogUI() {
+    document.getElementById('dialog-speaker').textContent = dialogSpeaker;
+    document.getElementById('dialog-text').textContent = dialogQueue[dialogIndex];
+    document.getElementById('dialog-portrait').textContent = dialogPortrait;
+}
+
+function advanceDialog() {
+    dialogIndex++;
+    if(dialogIndex >= dialogQueue.length) {
+        document.getElementById('dialog-box').classList.add('hidden');
+        game.state = 'playing';
+    } else {
+        updateDialogUI();
+    }
+}
+
+// ============================================================
+// COMBAT
+// ============================================================
+function playerAttack() {
+    if(player.attackCooldown > 0) return;
+    player.attacking = true;
+    player.attackTimer = 0.25;
+    player.attackCooldown = 0.4;
+
+    // Attack hitbox
+    let ax = player.x, ay = player.y;
+    const range = TILE*0.9;
+    if(player.dir==='up') ay -= range;
+    else if(player.dir==='down') ay += player.h;
+    else if(player.dir==='left') ax -= range;
+    else if(player.dir==='right') ax += player.w;
+
+    const aw = player.dir==='up'||player.dir==='down' ? player.w : range;
+    const ah = player.dir==='up'||player.dir==='down' ? range : player.h;
+
+    addParticles(ax+aw/2, ay+ah/2, '#f4c842', 3);
+
+    enemies.forEach(e => {
+        if(!e.alive) return;
+        if(rectOverlap(ax,ay,aw,ah, e.x,e.y,TILE*0.7,TILE*0.7)) {
+            const dmg = Math.max(1, getPlayerAtk() - e.def + Math.floor(Math.random()*4));
+            e.curHp -= dmg;
+            e.hitTimer = 0.2;
+            addFloatingText(e.x+TILE/2, e.y, '-'+dmg, '#e74c3c');
+            addParticles(e.x+TILE/2, e.y+TILE/2, '#ff0', 4);
+            cam.shakeT=0.1; cam.shakeM=3;
+
+            if(e.curHp <= 0) {
+                e.alive = false;
+                player.exp += e.exp;
+                player.gold += e.gold;
+                addFloatingText(e.x+TILE/2, e.y-10, '+'+e.exp+' EXP', '#2ecc71');
+                addFloatingText(e.x+TILE/2, e.y-25, '+'+e.gold+' 💰', '#f4c842');
+                addParticles(e.x+TILE/2, e.y+TILE/2, '#a00', 10);
+
+                // Level up
+                while(player.exp >= player.expNext) {
+                    player.exp -= player.expNext;
+                    player.level++;
+                    player.expNext = Math.floor(player.expNext * 1.5);
+                    player.maxHp += 15;
+                    player.hp = player.maxHp;
+                    player.maxMp += 10;
+                    player.mp = player.maxMp;
+                    player.atk += 2;
+                    player.def += 1;
+                    player.speed += 0.1;
+                    addFloatingText(player.x, player.y-20, '¡NIVEL '+player.level+'!', '#f4c842');
+                    cam.shakeT=0.3; cam.shakeM=5;
+                }
+
+                // Boss killed = victory
+                if(e.isBoss) {
+                    setTimeout(()=>{
+                        game.state = 'victory';
+                        document.getElementById('hud').classList.add('hidden');
+                        document.getElementById('victory-screen').classList.remove('hidden');
+                    }, 1000);
+                }
+            }
+        }
+    });
+}
+
+function playerSpecial() {
+    if(player.specialCooldown > 0 || player.mp < 20) return;
+    player.mp -= 20;
+    player.specialCooldown = 2.0;
+    player.attacking = true;
+    player.attackTimer = 0.4;
+    cam.shakeT=0.2; cam.shakeM=5;
+
+    // AoE around player
+    const range = TILE*2;
+    addParticles(player.x+player.w/2, player.y+player.h/2, '#4af', 15);
+    addParticles(player.x+player.w/2, player.y+player.h/2, '#fff', 8);
+
+    enemies.forEach(e => {
+        if(!e.alive) return;
+        const dx = (e.x+TILE/2)-(player.x+player.w/2);
+        const dy = (e.y+TILE/2)-(player.y+player.h/2);
+        if(Math.sqrt(dx*dx+dy*dy) < range) {
+            const dmg = Math.max(1, Math.floor(getPlayerAtk()*1.5) - e.def + Math.floor(Math.random()*6));
+            e.curHp -= dmg;
+            e.hitTimer = 0.3;
+            addFloatingText(e.x+TILE/2, e.y, '-'+dmg, '#3498db');
+            addParticles(e.x+TILE/2, e.y+TILE/2, '#3498db', 6);
+            if(e.curHp<=0) {
+                e.alive=false;
+                player.exp+=e.exp; player.gold+=e.gold;
+                addFloatingText(e.x+TILE/2,e.y-10,'+'+e.exp+' EXP','#2ecc71');
+                while(player.exp>=player.expNext) {
+                    player.exp-=player.expNext;player.level++;player.expNext=Math.floor(player.expNext*1.5);
+                    player.maxHp+=15;player.hp=player.maxHp;player.maxMp+=10;player.mp=player.maxMp;player.atk+=2;player.def+=1;
+                    addFloatingText(player.x,player.y-20,'¡NIVEL '+player.level+'!','#f4c842');
+                }
+                if(e.isBoss) {
+                    setTimeout(()=>{ game.state='victory'; document.getElementById('hud').classList.add('hidden'); document.getElementById('victory-screen').classList.remove('hidden'); },1000);
+                }
+            }
+        }
+    });
+}
+
+function rectOverlap(x1,y1,w1,h1,x2,y2,w2,h2) {
+    return x1<x2+w2 && x1+w1>x2 && y1<y2+h2 && y1+h1>y2;
+}
+
+// ============================================================
+// UPDATE
+// ============================================================
+function update(dt) {
+    if(game.state!=='playing') return;
+    game.animTime += dt;
+
+    // Player input
+    let dx=0, dy=0;
+    if(keys['ArrowUp']||keys['KeyW']) dy=-1;
+    if(keys['ArrowDown']||keys['KeyS']) dy=1;
+    if(keys['ArrowLeft']||keys['KeyA']) dx=-1;
+    if(keys['ArrowRight']||keys['KeyD']) dx=1;
+
+    if(joystick.active) {
+        if(Math.abs(joystick.dx)>0.2) dx=joystick.dx;
+        if(Math.abs(joystick.dy)>0.2) dy=joystick.dy;
+    }
+
+    // Normalize
+    if(dx!==0&&dy!==0){const m=Math.sqrt(dx*dx+dy*dy);dx/=m;dy/=m;}
+
+    // Direction
+    if(Math.abs(dx)>Math.abs(dy)){player.dir=dx>0?'right':'left';}
+    else if(dy!==0){player.dir=dy>0?'down':'up';}
+
+    // Movement with collision
+    const spd = player.speed * TILE * dt;
+    const nx = player.x + dx*spd;
+    const ny = player.y + dy*spd;
+
+    // Check X
+    const txL = Math.floor(nx/TILE), txR = Math.floor((nx+player.w-1)/TILE);
+    const tyT = Math.floor(player.y/TILE), tyB = Math.floor((player.y+player.h-1)/TILE);
+    let canX = true;
+    for(let ty=tyT;ty<=tyB;ty++){if(isSolid(txL,ty)||isSolid(txR,ty)){canX=false;break;}}
+    if(canX) player.x = nx;
+
+    const tyT2 = Math.floor(ny/TILE), tyB2 = Math.floor((ny+player.h-1)/TILE);
+    const txL2 = Math.floor(player.x/TILE), txR2 = Math.floor((player.x+player.w-1)/TILE);
+    let canY = true;
+    for(let tx=txL2;tx<=txR2;tx++){if(isSolid(tx,tyT2)||isSolid(tx,tyB2)){canY=false;break;}}
+    if(canY) player.y = ny;
+
+    // Animation
+    if(dx!==0||dy!==0){player.animTimer+=dt;if(player.animTimer>.15){player.animFrame=(player.animFrame+1)%4;player.animTimer=0;}}
+
+    // Attack
+    if(keys['Space']||mobileAttack) playerAttack();
+    if(keys['KeyQ']||mobileSpecial) playerSpecial();
+
+    // Interact
+    if(keys['KeyE']||mobileInteract) {
+        keys['KeyE']=false; mobileInteract=false;
+        interact();
+    }
+
+    // Inventory
+    if(keys['KeyI']) { keys['KeyI']=false; toggleInventory(); }
+
+    // Timers
+    if(player.attackTimer>0){player.attackTimer-=dt;if(player.attackTimer<=0)player.attacking=false;}
+    if(player.attackCooldown>0) player.attackCooldown-=dt;
+    if(player.specialCooldown>0) player.specialCooldown-=dt;
+    if(player.invincibleTimer>0) player.invincibleTimer-=dt;
+
+    // Mana regen
+    player.mp = Math.min(player.maxMp, player.mp + dt*2);
+
+    // Check exits
+    const ptx = Math.floor((player.x+player.w/2)/TILE);
+    const pty = Math.floor((player.y+player.h/2)/TILE);
+    const exit = checkExit(ptx, pty);
+    if(exit) {
+        loadMap(exit.to, exit.tx, exit.ty);
+        return;
+    }
+
+    // Update enemies
+    enemies.forEach(e => {
+        if(!e.alive) return;
+        e.hitTimer = Math.max(0, e.hitTimer-dt);
+        e.attackTimer = Math.max(0, e.attackTimer-dt);
+        e.animTimer += dt;
+        if(e.animTimer>0.2){e.animFrame=(e.animFrame+1)%4;e.animTimer=0;}
+
+        // AI
+        const dxE = (player.x+player.w/2) - (e.x+TILE/2);
+        const dyE = (player.y+player.h/2) - (e.y+TILE/2);
+        const dist = Math.sqrt(dxE*dxE+dyE*dyE);
+
+        if(dist < e.aggroRange) {
+            // Move toward player
+            const s = e.speed * TILE * dt;
+            if(dist > TILE*0.6) {
+                const ndx = dxE/dist, ndy = dyE/dist;
+                const enx = e.x + ndx*s;
+                const eny = e.y + ndy*s;
+                const etx = Math.floor(enx/TILE), ety = Math.floor(eny/TILE);
+                if(!isSolid(etx, ety)) { e.x=enx; e.y=eny; }
+                e.dir = Math.abs(dxE)>Math.abs(dyE) ? (dxE>0?'right':'left') : (dyE>0?'down':'up');
+            }
+            // Attack player
+            if(dist < TILE && e.attackTimer <= 0) {
+                e.attackTimer = e.attackCooldown;
+                if(player.invincibleTimer <= 0) {
+                    const dmg = Math.max(1, e.atk - getPlayerDef() + Math.floor(Math.random()*3));
+                    player.hp -= dmg;
+                    player.invincibleTimer = 0.5;
+                    addFloatingText(player.x+player.w/2, player.y, '-'+dmg, '#ff4444');
+                    addParticles(player.x+player.w/2, player.y+player.h/2, '#f00', 4);
+                    cam.shakeT=0.15; cam.shakeM=4;
+
+                    if(player.hp <= 0) {
+                        player.hp = 0;
+                        game.state = 'gameover';
+                        document.getElementById('hud').classList.add('hidden');
+                        document.getElementById('gameover-screen').classList.remove('hidden');
+                    }
+                }
+            }
+        } else {
+            // Wander
+            e.moveTimer -= dt;
+            if(e.moveTimer <= 0) {
+                e.moveTimer = 2+Math.random()*
