@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AUGUSTO — El Cazador de Sombras</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="gameWrapper">
+  <canvas id="c" width="576" height="576"></canvas>
+
+  <div id="ui">
+    <!-- Player HUD -->
+    <div id="hud">
+      <div class="hud-name">⚔ AUGUSTO</div>
+      <div class="bar-row">
+        <span class="bar-label">HP</span>
+        <div class="bar-wrap"><div id="hpBar"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">MP</span>
+        <div class="bar-wrap"><div id="manaBar"></div></div>
+      </div>
+    </div>
+
+    <div id="topRight">
+      <div id="score">ORO: <span id="scoreVal">0</span></div>
+      <div id="waveLabel">ZONA <span id="levelVal">1</span></div>
+    </div>
+
+    <!-- Boss bar -->
+    <div id="bossHud">
+      <div id="bossName">☠ EL CUERO ☠</div>
+      <div id="bossBarWrap"><div id="bossBar"></div></div>
+    </div>
+
+    <!-- Touch controls -->
+    <div id="controls">
+      <div class="dpad">
+        <div class="btn" id="btnUp">▲</div>
+        <div class="btn" id="btnLeft">◀</div>
+        <div class="btn" id="btnRight">▶</div>
+        <div class="btn" id="btnDown">▼</div>
+      </div>
+      <div class="action-btns">
+        <div class="btn action" id="btnAttack">⚔️</div>
+        <div class="btn skill"  id="btnSkill">💀</div>
+      </div>
+    </div>
+
+    <!-- Dialog -->
+    <div id="dialog">
+      <div id="dialogName">EL CUERO</div>
+      <div id="dialogText"></div>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+  <!-- Screens -->
+  <div id="overlay">
+    <div class="deco">☽ ✦ ☾</div>
+    <h1>AUGUSTO</h1>
+    <div class="hero-title">El Cazador de Sombras</div>
+    <div class="lore">
+      "Donde otros huyeron, Augusto avanzó.<br>
+      Forjado en la oscuridad, portador de la llama eterna.<br>
+      El infierno tiembla al escuchar su nombre."
+    </div>
+    <button id="startBtn">⚔ &nbsp;Entrar al Abismo&nbsp; ⚔</button>
+    <div class="keys">WASD / Flechas · J Atacar · K Habilidad</div>
+  </div>
+
+  <div id="deathOverlay">
+    <h2>AUGUSTO HA CAÍDO</h2>
+    <div id="deathReason"></div>
+    <button id="restartBtn">↩ Levantarse y luchar</button>
+  </div>
+
+  <div id="victoryOverlay">
+    <h2>¡EL CUERO HA SIDO DERROTADO!</h2>
+    <p>"Augusto ha enviado al Cuero de vuelta al abismo.<br>La oscuridad ha sido conquistada."</p>
+    <button id="victoryBtn">⚔ Jugar de nuevo ⚔</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>

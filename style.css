@@ -1,0 +1,441 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ── Reset ── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --accent:   #7c4dff;
+  --accent2:  #00e5ff;
+  --gold:     #ffd54f;
+  --dark:     #0a0014;
+  --mid:      #12001e;
+  --border:   #3d1f6b;
+  --red:      #ff1744;
+  --green:    #69ff47;
+}
+
+body {
+  background: var(--dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+  touch-action: none;
+  font-family: 'Crimson Text', serif;
+}
+
+/* ── Game wrapper ── */
+#gameWrapper {
+  position: relative;
+  width: min(576px, 100vw);
+  aspect-ratio: 1 / 1;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* ── UI layer ── */
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── HUD ── */
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(10,0,20,0.75);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.hud-name {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px var(--gold);
+  margin-bottom: 3px;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bar-label {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: 7px;
+  color: var(--accent2);
+  letter-spacing: 1px;
+  width: 14px;
+}
+
+.bar-wrap {
+  width: 100px;
+  height: 8px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#hpBar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #b71c1c, var(--red), #ff6659);
+  border-radius: 2px;
+  box-shadow: 0 0 6px #ff174480;
+  transition: width 0.1s;
+}
+
+#manaBar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #1a0070, var(--accent), var(--accent2));
+  border-radius: 2px;
+  box-shadow: 0 0 6px #7c4dff80;
+  transition: width 0.1s;
+}
+
+/* ── Score / wave ── */
+#topRight {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  text-align: right;
+  background: rgba(10,0,20,0.75);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+#score {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: 9px;
+  color: var(--gold);
+  text-shadow: 0 0 8px var(--gold);
+  letter-spacing: 1px;
+}
+
+#waveLabel {
+  font-size: 9px;
+  color: #8060aa;
+  letter-spacing: 2px;
+  margin-top: 2px;
+}
+
+/* ── Boss HP bar ── */
+#bossHud {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 300px;
+  background: rgba(10,0,20,0.85);
+  border: 1px solid #1a5500;
+  border-radius: 6px;
+  padding: 7px 12px;
+}
+
+#bossHud.visible { display: flex; }
+
+#bossName {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: 11px;
+  color: var(--green);
+  text-shadow: 0 0 12px var(--green);
+  letter-spacing: 3px;
+}
+
+#bossBarWrap {
+  width: 100%;
+  height: 12px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid #1a5500;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+#bossBar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #1b5e20, #69ff47, #b9f6ca);
+  border-radius: 3px;
+  box-shadow: 0 0 10px #69ff4780;
+  transition: width 0.1s;
+}
+
+/* ── Touch controls ── */
+#controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: none;
+  padding: 8px 12px;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: all;
+}
+
+#controls.visible { display: flex; }
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 3px;
+}
+
+.btn {
+  background: rgba(20,0,40,0.85);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  box-shadow: 0 0 8px rgba(124,77,255,0.3);
+  transition: background 0.08s, transform 0.08s;
+}
+
+.btn:active, .btn.pressed {
+  background: rgba(80,0,160,0.9);
+  transform: scale(0.9);
+  box-shadow: 0 0 14px rgba(124,77,255,0.7);
+}
+
+#btnUp    { grid-column:2; grid-row:1; }
+#btnLeft  { grid-column:1; grid-row:2; }
+#btnRight { grid-column:3; grid-row:2; }
+#btnDown  { grid-column:2; grid-row:3; }
+
+.action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.btn.action {
+  width: 56px; height: 56px;
+  font-size: 20px; border-radius: 50%;
+  border-color: #7c4dff;
+  box-shadow: 0 0 14px rgba(124,77,255,0.5);
+}
+
+.btn.skill {
+  width: 42px; height: 42px;
+  font-size: 15px; border-radius: 50%;
+  border-color: #0097a7;
+  color: var(--accent2);
+}
+
+/* ── Dialog ── */
+#dialog {
+  position: absolute;
+  bottom: 62px;
+  left: 8px;
+  right: 8px;
+  background: rgba(10,0,20,0.95);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: none;
+  pointer-events: none;
+}
+
+#dialog.visible { display: block; }
+
+#dialogName {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: 9px;
+  color: var(--green);
+  letter-spacing: 2px;
+  margin-bottom: 5px;
+}
+
+#dialogText {
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  color: #c8a8e0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ── Floating message ── */
+#msg {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: clamp(11px, 2.5vw, 16px);
+  color: var(--gold);
+  text-shadow: 0 0 16px var(--gold);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+  text-align: center;
+}
+
+#msg.show { opacity: 1; }
+
+/* ── Overlay shared ── */
+#overlay, #deathOverlay, #victoryOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  pointer-events: all;
+  text-align: center;
+  padding: 20px;
+}
+
+/* ── Start screen ── */
+#overlay {
+  background: rgba(5,0,14,0.92);
+}
+
+#overlay .deco {
+  color: #4a1a6a;
+  font-size: clamp(14px, 3vw, 22px);
+  letter-spacing: 8px;
+  margin-bottom: 6px;
+  text-shadow: 0 0 14px var(--accent);
+}
+
+#overlay h1 {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: clamp(28px, 7vw, 52px);
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent), 0 0 70px #3d0099;
+  letter-spacing: 4px;
+  margin-bottom: 4px;
+}
+
+.hero-title {
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  color: var(--gold);
+  font-size: clamp(12px, 2.5vw, 18px);
+  letter-spacing: 4px;
+  margin-bottom: 18px;
+  text-shadow: 0 0 10px #ffd54f88;
+}
+
+.lore {
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  color: #7a5a9a;
+  font-size: clamp(11px, 2vw, 14px);
+  letter-spacing: 1px;
+  line-height: 2;
+  max-width: 380px;
+  margin-bottom: 28px;
+  border-left: 2px solid var(--border);
+  border-right: 2px solid var(--border);
+  padding: 0 16px;
+}
+
+#overlay button, #deathOverlay button, #victoryOverlay button {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: clamp(11px, 2.2vw, 15px);
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  background: transparent;
+  padding: 11px 30px;
+  cursor: pointer;
+  letter-spacing: 3px;
+  text-shadow: 0 0 8px var(--gold);
+  box-shadow: 0 0 18px rgba(255,213,79,0.2);
+  transition: all 0.3s;
+}
+
+#overlay button:hover, #deathOverlay button:hover, #victoryOverlay button:hover {
+  background: rgba(255,213,79,0.08);
+  box-shadow: 0 0 36px rgba(255,213,79,0.5);
+}
+
+.keys {
+  position: absolute;
+  bottom: 12px;
+  font-size: 10px;
+  color: #3d2060;
+  letter-spacing: 1px;
+}
+
+/* ── Death screen ── */
+#deathOverlay {
+  display: none;
+  background: rgba(50,0,0,0.8);
+}
+
+#deathOverlay.visible { display: flex; }
+
+#deathOverlay h2 {
+  font-family: 'Cinzel Decorative', cursive;
+  color: var(--red);
+  font-size: clamp(20px, 5vw, 36px);
+  text-shadow: 0 0 28px var(--red);
+  margin-bottom: 8px;
+}
+
+#deathReason {
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  color: #8a3030;
+  font-size: 13px;
+  margin-bottom: 22px;
+}
+
+/* ── Victory screen ── */
+#victoryOverlay {
+  display: none;
+  background: rgba(0,20,0,0.88);
+}
+
+#victoryOverlay.visible { display: flex; }
+
+#victoryOverlay h2 {
+  font-family: 'Cinzel Decorative', cursive;
+  color: var(--green);
+  font-size: clamp(16px, 4vw, 28px);
+  text-shadow: 0 0 28px var(--green);
+  margin-bottom: 10px;
+}
+
+#victoryOverlay p {
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  color: #aaffaa;
+  font-size: 13px;
+  margin-bottom: 22px;
+  line-height: 1.8;
+}
