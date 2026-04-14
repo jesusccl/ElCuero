@@ -215,6 +215,7 @@ function makeEnemy(wx, wy, type) {
 let boss = null;
 let bossActive = false;
 let bossDefeated = false;
+let waveClearing = false;
 
 function makeBoss() {
   return {
@@ -642,11 +643,12 @@ function update() {
   // ── Wave clear ────────────────────────────────────
   const allDead = enemies.every(e => e.dead);
   const bossDone = bossActive ? (boss && boss.dead) : true;
-  if (allDead && bossDone && !bossDefeated) {
+  if (allDead && bossDone && !bossDefeated && !waveClearing) {
+    waveClearing = true;
     wave++;
     document.getElementById('levelVal').textContent = wave;
     showMsg(`⚔ ZONA ${wave} — Sigue, Augusto ⚔`, 2500);
-    setTimeout(() => spawnWave(wave), 2200);
+    setTimeout(() => { spawnWave(wave); waveClearing = false; }, 2200);
   }
 
   updateHUD();
@@ -1268,7 +1270,7 @@ function startGame() {
   player.atkCd = 0; player.sklCd = 0; player.atkAnim = 0;
   player.facing = 2; player.moving = false;
 
-  score = 0; wave = 1; frame = 0; bossDefeated = false;
+  score = 0; wave = 1; frame = 0; bossDefeated = false; waveClearing = false;
   particles = []; projectiles = []; floatingTexts = [];
 
   document.getElementById('scoreVal').textContent = '0';
