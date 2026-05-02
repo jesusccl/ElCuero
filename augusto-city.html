@@ -3233,10 +3233,15 @@ function loop() {
   updatePolice(dt);
   updateMissions(dt);
   updateProperties(dt);
+  // Day/night keeps running so time-of-day stays accurate, but it skips
+  // touching lamps/sun visually if we're inside the mansion.
   updateDayNight(dt);
   updateTimeOfDayHUD();
-  if (typeof updateNPCs === 'function') updateNPCs(dt);
-  if (typeof updateEconomy === 'function') updateEconomy(dt);
+  // Skip outdoor systems while inside the mansion
+  if (!pState.inMansion) {
+    if (typeof updateNPCs === 'function') updateNPCs(dt);
+    if (typeof updateEconomy === 'function') updateEconomy(dt);
+  }
   if (typeof updateFuelHUD === 'function') updateFuelHUD();
   if (pState.inMansion) checkMansionExit();
   updateCamera();
@@ -3276,19 +3281,12 @@ function updateActionBtn() {
 
   // Property prompt
   if (pState.inMansion) {
-    // Show exit button only when near the door
-    if (mansionInterior) {
-      const dx = pState.pos.x - 0;
-      const dz = pState.pos.z - (5000 + mansionInterior.exitPos.z);
-      if (Math.sqrt(dx*dx + dz*dz) < 2.0) {
-        actionBtn.style.display = 'flex';
-        actionBtn.classList.add('exit');
-        actionIcon.textContent = '🚪';
-        actionLabel.textContent = 'SALIR';
-        return;
-      }
-    }
-    actionBtn.style.display = 'none';
+    // Always show the exit button while inside — distance check moved to action handler.
+    // (Hard to find the door on mobile if button only shows up close.)
+    actionBtn.style.display = 'flex';
+    actionBtn.classList.add('exit');
+    actionIcon.textContent = '🚪';
+    actionLabel.textContent = 'SALIR';
     return;
   }
   if (nearbyProperty) {
@@ -3320,7 +3318,7 @@ function doActionBtn() {
     return;
   }
   if (pState.inMansion) {
-    checkMansionExit();
+    exitMansion();
     return;
   }
   const v = findNearbyVehicle();
@@ -3771,9 +3769,9 @@ function updateDayNight(dt) {
   if (__ambLight) __ambLight.intensity = s.ambInt;
 
   // Lamps: night threshold (around 0.78–0.20 — covers dusk through dawn)
+  // Skip lamp work entirely while inside the mansion
   const isNight = timeOfDay > 0.78 || timeOfDay < 0.22;
-  // Cheap path: turn on only the 8 lamps closest to the player
-  if (lampList.length > 0) {
+  if (lampList.length > 0 && !pState.inMansion) {
     if (isNight) {
       // Find 8 nearest (very lightweight even at 30 lamps)
       const px = pState.pos.x, pz = pState.pos.z;
@@ -4811,11 +4809,13 @@ function enterMansion() {
   if (!data) return;
 
   // Stash exterior collision and player return spot
+  // (only stash if buildingsBackup is empty — prevents stacking on re-entry)
   mansionReturnPos = { x: data.pos.x + data.w/2 + 4, z: data.pos.z };
-  for (const b of buildings) buildingsBackup.push(b);
+  if (buildingsBackup.length === 0) {
+    for (const b of buildings) buildingsBackup.push(b);
+  }
   buildings.length = 0;
 
-  // Hide exterior world (we'll hide via fog/teleport — easier: teleport to an offset)
   // Build interior (or reuse if cached)
   if (!mansionInterior) mansionInterior = buildMansionInterior();
   mansionInterior.group.position.set(0, 0, 5000); // far offset to hide from world
@@ -4824,6 +4824,7 @@ function enterMansion() {
   // Move player into mansion (offset by same 5000 in Z)
   pState.pos.x = 0;
   pState.pos.z = 5000 + 8;
+  pState.vel.set(0, 0, 0); // kill momentum so player doesn't slide on entry
   pState.inMansion = true;
 
   // Push interior collisions (offset)
@@ -4834,7 +4835,23 @@ function enterMansion() {
     });
   }
 
+  // Hide all NPCs while inside (they'll respawn on exit)
+  if (typeof npcs !== 'undefined') {
+    npcs.forEach(n => { n.inUse = false; n.group.visible = false; });
+  }
+
+  // Cancel any active taxi mission
+  if (typeof taxiState !== 'undefined' && taxiState.active) {
+    if (taxiState.passenger.mesh) {
+      scene.remove(taxiState.passenger.mesh);
+      taxiState.passenger.mesh = null;
+    }
+    taxiState.active = false;
+    taxiState.phase = null;
+  }
+
   addFeed('🏛️ Bienvenido a la Mansión Augusto');
+  addFeed('🚪 Acércate a la puerta y pulsa B para salir');
   // Calmer atmosphere
   scene.fog = new THREE.FogExp2(0xfff0d8, 0.025);
 }
@@ -4850,6 +4867,7 @@ function exitMansion() {
   // Teleport back near mansion door
   pState.pos.x = mansionReturnPos.x;
   pState.pos.z = mansionReturnPos.z;
+  pState.vel.set(0, 0, 0);
   pState.inMansion = false;
   // Restore outdoor fog
   scene.fog = new THREE.FogExp2(0xa8c8e8, 0.0028);
@@ -4862,13 +4880,13 @@ function checkMansionExit() {
   const exitZ = 5000 + mansionInterior.exitPos.z;
   const dx = pState.pos.x - exitX;
   const dz = pState.pos.z - exitZ;
-  if (Math.sqrt(dx*dx + dz*dz) < 1.6) exitMansion();
+  if (Math.sqrt(dx*dx + dz*dz) < 2.2) exitMansion();
 }
 
 // Hook B key to buy/enter
 window.addEventListener('keydown', e => {
   if (e.code === 'KeyB' && gameRunning && !playerDead) {
-    if (pState.inMansion) checkMansionExit();
+    if (pState.inMansion) exitMansion();
     else tryBuyOrEnterProperty();
   }
 });
