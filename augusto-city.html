@@ -32,6 +32,28 @@ body { overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; touc
   letter-spacing:0.5px;
 }
 
+#time-of-day {
+  position:absolute; top:62px; right:130px;
+  color:#c8d8f0; font-size:13px; font-weight:700;
+  text-shadow:2px 2px 0 #000;
+  letter-spacing:0.5px;
+}
+
+#fuel-wrap {
+  position:absolute; bottom:90px; left:18px;
+  background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; padding:6px 10px; min-width:140px;
+  color:#fff; font-weight:800;
+}
+.fuel-label { font-size:12px; margin-bottom:4px; }
+.fuel-track {
+  width:100%; height:8px; background:#222; border-radius:99px; overflow:hidden;
+}
+#fuel-bar {
+  height:100%; background:#44dd66; border-radius:99px;
+  transition:width 0.2s, background 0.2s;
+}
+
 /* Property prompt (when standing on a portal) */
 #property-prompt {
   position:fixed; bottom:130px; left:50%; transform:translateX(-50%);
@@ -391,6 +413,20 @@ body { overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; touc
     right:auto;
     font-size:12px;
   }
+  /* Time of day under money */
+  #time-of-day {
+    top: calc(64px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    right:auto;
+    font-size:11px;
+  }
+  /* Fuel HUD smaller on mobile, above health */
+  #fuel-wrap {
+    bottom: calc(228px + env(safe-area-inset-bottom, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    min-width:110px; padding:4px 8px;
+  }
+  .fuel-label { font-size:10px; }
   /* Wanted stars smaller, pinned top-right */
   #wanted-wrap {
     top: calc(8px + env(safe-area-inset-top, 0px));
@@ -502,6 +538,11 @@ body { overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; touc
   <div id="name-tag">⚡ AUGUSTO</div>
   <div id="score-tag">PUNTOS: <span id="score-val">0</span></div>
   <div id="money-tag">💵 $<span id="money-val">1.000.000</span></div>
+  <div id="time-of-day">🕒 07:12</div>
+  <div id="fuel-wrap" style="display:none;">
+    <div class="fuel-label">⛽ <span id="fuel-val">100</span></div>
+    <div class="fuel-track"><div id="fuel-bar"></div></div>
+  </div>
   <div id="wanted-wrap">
     <div id="wanted-label">SE BUSCA</div>
     <div id="wanted-stars">☆☆☆☆☆</div>
@@ -678,23 +719,12 @@ function init() {
   scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0xa8c8e8, 0.0028);
 
-  // Vertical-gradient sky
+  // Sky dome — color-controlled (changes through the day/night cycle)
   const skyGeo = new THREE.SphereGeometry(700, 32, 16);
-  const skyCanvas = document.createElement('canvas');
-  skyCanvas.width = 64; skyCanvas.height = 256;
-  const sctx = skyCanvas.getContext('2d');
-  const grad = sctx.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0,   '#1a3960');
-  grad.addColorStop(0.4, '#5a8ec8');
-  grad.addColorStop(0.7, '#a8c8e8');
-  grad.addColorStop(1,   '#e8d8b0');
-  sctx.fillStyle = grad;
-  sctx.fillRect(0, 0, 64, 256);
-  const skyTex = new THREE.CanvasTexture(skyCanvas);
-  skyTex.encoding = THREE.LinearEncoding;
-  const skyMat = new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false });
+  const skyMat = new THREE.MeshBasicMaterial({ color: 0xa8c8e8, side: THREE.BackSide, fog: false, depthWrite: false });
   const sky = new THREE.Mesh(skyGeo, skyMat);
   scene.add(sky);
+  window.__skyMat = skyMat; // exposed for the day/night system
 
   renderer.setClearColor(0xa8c8e8);
 
@@ -707,6 +737,8 @@ function init() {
   buildPlayer();
   spawnEnemies(9);
   spawnPickups();
+  if (typeof spawnNPCPool === 'function') spawnNPCPool();
+  if (typeof spawnGasStations === 'function') spawnGasStations();
   setupInput();
 
   window.addEventListener('resize', () => {
@@ -727,7 +759,9 @@ function init() {
    LIGHTING
 ═══════════════════════════════════════════════════ */
 function buildLights() {
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const amb = new THREE.AmbientLight(0xffffff, 0.55);
+  scene.add(amb);
+  __ambLight = amb;
 
   // Main sun (warm, casts shadows)
   const sun = new THREE.DirectionalLight(0xfff4d6, 1.15);
@@ -1589,6 +1623,8 @@ function makeTree(x, z) {
   });
 }
 
+const lampList = []; // { x, z, light, head }
+
 function makeLamp(x, z) {
   const pole = new THREE.Mesh(
     new THREE.CylinderGeometry(0.07,0.1,5,6),
@@ -1599,14 +1635,16 @@ function makeLamp(x, z) {
 
   const head = new THREE.Mesh(
     new THREE.BoxGeometry(0.8,0.25,0.4),
-    new THREE.MeshBasicMaterial({ color:0xFFFFAA })
+    new THREE.MeshBasicMaterial({ color:0x444433 }) // dim by day
   );
   head.position.set(x, 5.2, z);
   scene.add(head);
 
-  const light = new THREE.PointLight(0xFFEEAA, 0.8, 14);
+  const light = new THREE.PointLight(0xFFEEAA, 0, 14); // intensity 0 = off
   light.position.set(x, 5, z);
   scene.add(light);
+
+  lampList.push({ x, z, light, head });
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3195,6 +3233,11 @@ function loop() {
   updatePolice(dt);
   updateMissions(dt);
   updateProperties(dt);
+  updateDayNight(dt);
+  updateTimeOfDayHUD();
+  if (typeof updateNPCs === 'function') updateNPCs(dt);
+  if (typeof updateEconomy === 'function') updateEconomy(dt);
+  if (typeof updateFuelHUD === 'function') updateFuelHUD();
   if (pState.inMansion) checkMansionExit();
   updateCamera();
   updateWorld(dt, t);
@@ -3662,6 +3705,618 @@ function isMobile() {
 /* ═══════════════════════════════════════════════════
    PROPERTIES — comprar casas y entrar a la mansión
 ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   DAY / NIGHT CYCLE
+═══════════════════════════════════════════════════ */
+// One full day = ~6 minutes. timeOfDay is 0..1 (0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk).
+const DAY_LENGTH = 360; // seconds for full cycle
+let timeOfDay = 0.30; // start a bit after dawn
+
+// Helper: linear color blend
+function blendColor(c1, c2, t) {
+  const a = new THREE.Color(c1), b = new THREE.Color(c2);
+  return a.lerp(b, t);
+}
+
+// Color stops along the day. Each entry: {t, sky, fog, sunCol, sunInt, ambInt}
+const DAY_STOPS = [
+  { t: 0.00, sky: 0x0a0e1e, fog: 0x0a0e1e, sunCol: 0x4060a0, sunInt: 0.05, ambInt: 0.18, sunY:  -0.5 }, // midnight
+  { t: 0.18, sky: 0x1a1e3e, fog: 0x222a40, sunCol: 0x4060a0, sunInt: 0.10, ambInt: 0.22, sunY:  -0.3 }, // pre-dawn
+  { t: 0.25, sky: 0xc06848, fog: 0xc89880, sunCol: 0xff8848, sunInt: 0.55, ambInt: 0.40, sunY:   0.1 }, // dawn (orange)
+  { t: 0.35, sky: 0x88b4dc, fog: 0xb0c8e0, sunCol: 0xfff0c8, sunInt: 0.95, ambInt: 0.50, sunY:   0.5 }, // morning
+  { t: 0.50, sky: 0xa8c8e8, fog: 0xa8c8e8, sunCol: 0xfff4d6, sunInt: 1.15, ambInt: 0.55, sunY:   1.0 }, // noon
+  { t: 0.65, sky: 0x88b4dc, fog: 0xa8c0d8, sunCol: 0xffe8b8, sunInt: 0.95, ambInt: 0.50, sunY:   0.5 }, // afternoon
+  { t: 0.75, sky: 0xd0683c, fog: 0xd49060, sunCol: 0xff7030, sunInt: 0.55, ambInt: 0.40, sunY:   0.1 }, // dusk (red)
+  { t: 0.82, sky: 0x2a2050, fog: 0x383050, sunCol: 0x6080c0, sunInt: 0.18, ambInt: 0.28, sunY:  -0.2 }, // twilight
+  { t: 0.95, sky: 0x0c1228, fog: 0x141a30, sunCol: 0x4060a0, sunInt: 0.08, ambInt: 0.20, sunY:  -0.4 }, // night
+  { t: 1.00, sky: 0x0a0e1e, fog: 0x0a0e1e, sunCol: 0x4060a0, sunInt: 0.05, ambInt: 0.18, sunY:  -0.5 }, // midnight wraps
+];
+
+function sampleDayStop(t) {
+  for (let i = 0; i < DAY_STOPS.length - 1; i++) {
+    const a = DAY_STOPS[i], b = DAY_STOPS[i+1];
+    if (t >= a.t && t <= b.t) {
+      const f = (t - a.t) / (b.t - a.t);
+      return {
+        sky: blendColor(a.sky, b.sky, f),
+        fog: blendColor(a.fog, b.fog, f),
+        sunCol: blendColor(a.sunCol, b.sunCol, f),
+        sunInt: a.sunInt + (b.sunInt - a.sunInt) * f,
+        ambInt: a.ambInt + (b.ambInt - a.ambInt) * f,
+        sunY:   a.sunY   + (b.sunY   - a.sunY)   * f,
+      };
+    }
+  }
+  return DAY_STOPS[0];
+}
+
+let __ambLight = null; // ambient light reference (set in patched buildLights)
+
+function updateDayNight(dt) {
+  timeOfDay = (timeOfDay + dt / DAY_LENGTH) % 1;
+  const s = sampleDayStop(timeOfDay);
+
+  // Sky + fog colors
+  if (window.__skyMat) window.__skyMat.color.copy(s.sky);
+  if (scene.fog) scene.fog.color.copy(s.fog);
+  if (renderer) renderer.setClearColor(s.sky);
+
+  // Sun (color + intensity only — XZ tracking is handled by updateCamera)
+  if (window.__sunLight) {
+    window.__sunLight.color.copy(s.sunCol);
+    window.__sunLight.intensity = s.sunInt;
+  }
+
+  // Ambient
+  if (__ambLight) __ambLight.intensity = s.ambInt;
+
+  // Lamps: night threshold (around 0.78–0.20 — covers dusk through dawn)
+  const isNight = timeOfDay > 0.78 || timeOfDay < 0.22;
+  // Cheap path: turn on only the 8 lamps closest to the player
+  if (lampList.length > 0) {
+    if (isNight) {
+      // Find 8 nearest (very lightweight even at 30 lamps)
+      const px = pState.pos.x, pz = pState.pos.z;
+      const sorted = lampList
+        .map(l => ({ l, d: (l.x-px)*(l.x-px) + (l.z-pz)*(l.z-pz) }))
+        .sort((a,b) => a.d - b.d)
+        .slice(0, 8);
+      const onSet = new Set(sorted.map(s => s.l));
+      lampList.forEach(l => {
+        if (onSet.has(l)) {
+          l.light.intensity = 0.9;
+          l.head.material.color.setHex(0xffeeaa);
+        } else {
+          l.light.intensity = 0;
+          // Distant lamps: just a glowing emissive head (no light cost)
+          l.head.material.color.setHex(0xffeeaa);
+        }
+      });
+    } else {
+      lampList.forEach(l => {
+        l.light.intensity = 0;
+        l.head.material.color.setHex(0x444433);
+      });
+    }
+  }
+}
+
+// Time-of-day HUD label (small)
+function updateTimeOfDayHUD() {
+  const el = document.getElementById('time-of-day');
+  if (!el) return;
+  const totalMin = Math.floor(timeOfDay * 24 * 60);
+  const hours = Math.floor(totalMin / 60);
+  const mins  = totalMin % 60;
+  el.textContent = `🕒 ${String(hours).padStart(2,'0')}:${String(mins).padStart(2,'0')}`;
+}
+
+
+/* ═══════════════════════════════════════════════════
+   NPC PEDESTRIANS — pool of walkers around the city
+═══════════════════════════════════════════════════ */
+const NPC_POOL_SIZE = 14;
+const NPC_ACTIVE_RADIUS = 90; // only NPCs within this radius move/render
+const npcs = [];
+
+const NPC_SHIRT_COLORS = [0x2244aa, 0xaa2244, 0x44aa44, 0xddaa22, 0xaa44aa, 0x22aaaa, 0xdddddd, 0x884422];
+const NPC_PANT_COLORS  = [0x222244, 0x442222, 0x111111, 0x554433, 0x332244];
+const NPC_SKIN_COLORS  = [0xd9a577, 0xc89464, 0xb88454, 0xa67244, 0xd5b59a];
+
+function makeNPC() {
+  const g = new THREE.Group();
+  const shirtCol = NPC_SHIRT_COLORS[Math.floor(Math.random()*NPC_SHIRT_COLORS.length)];
+  const pantCol  = NPC_PANT_COLORS[Math.floor(Math.random()*NPC_PANT_COLORS.length)];
+  const skinCol  = NPC_SKIN_COLORS[Math.floor(Math.random()*NPC_SKIN_COLORS.length)];
+
+  const shirtMat = new THREE.MeshLambertMaterial({ color: shirtCol });
+  const pantMat  = new THREE.MeshLambertMaterial({ color: pantCol });
+  const skinMat  = new THREE.MeshLambertMaterial({ color: skinCol });
+
+  // Torso
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.30, 0.65, 10), shirtMat);
+  torso.scale.set(1.1, 1, 0.7);
+  torso.position.y = 1.10;
+  torso.castShadow = true;
+  g.add(torso);
+
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), skinMat);
+  head.scale.set(1, 1.05, 0.95);
+  head.position.y = 1.65;
+  head.castShadow = true;
+  g.add(head);
+
+  // Hair (simple dome)
+  const hairCols = [0x2a1808, 0x553311, 0x884422, 0x222222, 0xddbb88];
+  const hairMat = new THREE.MeshLambertMaterial({ color: hairCols[Math.floor(Math.random()*hairCols.length)] });
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.23, 12, 10, 0, Math.PI*2, 0, Math.PI*0.55),
+    hairMat
+  );
+  hair.position.y = 1.72;
+  g.add(hair);
+
+  // Legs (simple groups for pivot animation)
+  function makeLeg() {
+    const leg = new THREE.Group();
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.45, 8), pantMat);
+    upper.position.y = -0.225;
+    upper.castShadow = true;
+    leg.add(upper);
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.10, 0.40, 8), pantMat);
+    shin.position.y = -0.65;
+    leg.add(shin);
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), new THREE.MeshLambertMaterial({ color: 0x111111 }));
+    shoe.scale.set(0.85, 0.45, 1.4);
+    shoe.position.set(0, -0.88, 0.05);
+    leg.add(shoe);
+    return leg;
+  }
+  const legL = makeLeg();
+  legL.position.set(-0.13, 0.78, 0);
+  g.add(legL);
+  const legR = makeLeg();
+  legR.position.set(0.13, 0.78, 0);
+  g.add(legR);
+
+  // Arms (also groups for swing)
+  function makeArm() {
+    const arm = new THREE.Group();
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.40, 8), shirtMat);
+    upper.position.y = -0.20;
+    upper.castShadow = true;
+    arm.add(upper);
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.30, 8), skinMat);
+    fore.position.y = -0.55;
+    arm.add(fore);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), skinMat);
+    hand.position.y = -0.74;
+    arm.add(hand);
+    return arm;
+  }
+  const armL = makeArm();
+  armL.position.set(-0.36, 1.40, 0);
+  g.add(armL);
+  const armR = makeArm();
+  armR.position.set(0.36, 1.40, 0);
+  g.add(armR);
+
+  scene.add(g);
+  g.visible = false;
+
+  return {
+    group: g,
+    legL, legR, armL, armR,
+    pos: new THREE.Vector3(),
+    vel: new THREE.Vector3(),
+    target: new THREE.Vector3(),
+    speed: 1.6 + Math.random() * 0.6,
+    state: 'idle', // 'walking' | 'fleeing' | 'dead'
+    walkPhase: Math.random() * Math.PI * 2,
+    spawnT: 0,
+    alive: true,
+    inUse: false,
+  };
+}
+
+function spawnNPCPool() {
+  for (let i = 0; i < NPC_POOL_SIZE; i++) npcs.push(makeNPC());
+}
+
+// Pick a random walkable point near the player (on or near a sidewalk)
+function pickNPCSpawnPoint(awayFromPlayer = true) {
+  const px = pState.pos.x, pz = pState.pos.z;
+  for (let tries = 0; tries < 12; tries++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 30 + Math.random() * 50;
+    const x = px + Math.cos(angle) * dist;
+    const z = pz + Math.sin(angle) * dist;
+    if (Math.abs(x) > WORLD - 5 || Math.abs(z) > WORLD - 5) continue;
+    return { x, z };
+  }
+  return { x: px + 30, z: pz + 30 };
+}
+
+function pickNPCTarget(npc) {
+  // Walk in a roughly straight line for ~20-40 meters, then pick a new point
+  const angle = Math.random() * Math.PI * 2;
+  const dist  = 18 + Math.random() * 24;
+  npc.target.set(
+    Math.max(-WORLD+5, Math.min(WORLD-5, npc.pos.x + Math.cos(angle) * dist)),
+    0,
+    Math.max(-WORLD+5, Math.min(WORLD-5, npc.pos.z + Math.sin(angle) * dist))
+  );
+}
+
+function updateNPCs(dt) {
+  if (!gameRunning) return;
+  const px = pState.pos.x, pz = pState.pos.z;
+
+  // Spawn cycling: replace dead/distant NPCs
+  npcs.forEach(npc => {
+    if (!npc.inUse) {
+      const sp = pickNPCSpawnPoint();
+      npc.pos.set(sp.x, 0, sp.z);
+      npc.group.position.copy(npc.pos);
+      npc.alive = true;
+      npc.state = 'walking';
+      npc.inUse = true;
+      npc.spawnT = 0;
+      npc.group.visible = true;
+      pickNPCTarget(npc);
+    }
+  });
+
+  for (const npc of npcs) {
+    if (!npc.inUse) continue;
+
+    // Distance culling — far NPCs hide and skip update
+    const dx = npc.pos.x - px, dz = npc.pos.z - pz;
+    const dist2 = dx*dx + dz*dz;
+    if (dist2 > NPC_ACTIVE_RADIUS * NPC_ACTIVE_RADIUS) {
+      // Far: respawn closer
+      npc.inUse = false;
+      npc.group.visible = false;
+      continue;
+    }
+    npc.group.visible = true;
+
+    if (npc.state === 'dead') {
+      // Stay dead a few seconds, then despawn
+      npc.spawnT += dt;
+      if (npc.spawnT > 6) { npc.inUse = false; npc.group.visible = false; }
+      continue;
+    }
+
+    // Approach target
+    const tdx = npc.target.x - npc.pos.x;
+    const tdz = npc.target.z - npc.pos.z;
+    const tdist = Math.sqrt(tdx*tdx + tdz*tdz);
+    if (tdist < 1.2) { pickNPCTarget(npc); continue; }
+
+    const moveSpeed = npc.state === 'fleeing' ? npc.speed * 2.4 : npc.speed;
+    const nx = tdx / tdist, nz = tdz / tdist;
+    npc.pos.x += nx * moveSpeed * dt;
+    npc.pos.z += nz * moveSpeed * dt;
+    npc.group.position.set(npc.pos.x, 0, npc.pos.z);
+
+    // Face direction
+    npc.group.rotation.y = Math.atan2(nx, nz);
+
+    // Walk anim
+    npc.walkPhase += dt * (npc.state === 'fleeing' ? 12 : 7);
+    const swing = Math.sin(npc.walkPhase) * (npc.state === 'fleeing' ? 0.7 : 0.45);
+    npc.legL.rotation.x =  swing;
+    npc.legR.rotation.x = -swing;
+    npc.armL.rotation.x = -swing * 0.6;
+    npc.armR.rotation.x =  swing * 0.6;
+
+    // Run-over check (vehicle)
+    if (driving) {
+      const vx = driving.group.position.x;
+      const vz = driving.group.position.z;
+      const vd2 = (vx-npc.pos.x)*(vx-npc.pos.x) + (vz-npc.pos.z)*(vz-npc.pos.z);
+      if (vd2 < 3.5 && Math.abs(driving.speed) > 6) {
+        npc.alive = false; npc.state = 'dead'; npc.spawnT = 0;
+        npc.group.rotation.z = Math.PI/2;
+        npc.group.position.y = -0.4;
+        addFeed('💀 Atropellaste a un peatón!  +20');
+        pState.score += 20;
+        pState.money += 5;
+        pState.wanted = Math.min(5, pState.wanted + 1);
+        pState.wantedT = 30;
+        document.getElementById('score-val').textContent = pState.score;
+        updateMoney();
+        updateWanted();
+        continue;
+      }
+    }
+
+    // React to nearby gunfire
+    if (pState.shootCooldown > 0.18 && Math.sqrt(dist2) < 20 && npc.state !== 'fleeing') {
+      npc.state = 'fleeing';
+      // Pick a target away from the player
+      const fleeAngle = Math.atan2(npc.pos.z - pz, npc.pos.x - px);
+      npc.target.set(
+        Math.max(-WORLD+5, Math.min(WORLD-5, npc.pos.x + Math.cos(fleeAngle) * 30)),
+        0,
+        Math.max(-WORLD+5, Math.min(WORLD-5, npc.pos.z + Math.sin(fleeAngle) * 30))
+      );
+      // Calm down after 5s
+      setTimeout(() => { if (npc.state === 'fleeing') npc.state = 'walking'; }, 5000);
+    }
+  }
+}
+
+
+
+/* ═══════════════════════════════════════════════════
+   ECONOMY — fuel + taxi missions
+═══════════════════════════════════════════════════ */
+const FUEL_MAX = 100;
+const FUEL_DRAIN_PER_M = 0.012; // fuel units lost per meter driven
+
+// Gas stations
+const GAS_STATIONS = [
+  { x:  60, z:  60 },
+  { x: -50, z:  70 },
+  { x:  80, z: -90 },
+  { x: -90, z: -50 },
+];
+
+const gasMarkers = []; // visual markers
+function spawnGasStations() {
+  GAS_STATIONS.forEach(s => {
+    const g = new THREE.Group();
+    // Pad
+    const pad = new THREE.Mesh(
+      new THREE.BoxGeometry(8, 0.05, 8),
+      new THREE.MeshLambertMaterial({ color: 0x444444 })
+    );
+    pad.position.y = 0.06;
+    g.add(pad);
+    // Pump
+    const pump = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 1.6, 0.6),
+      new THREE.MeshPhongMaterial({ color: 0xddaa22, shininess: 60 })
+    );
+    pump.position.set(0, 0.83, 0);
+    pump.castShadow = true;
+    g.add(pump);
+    // Roof (canopy)
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(8, 0.4, 8),
+      new THREE.MeshLambertMaterial({ color: 0xeeeeee })
+    );
+    roof.position.y = 4.0;
+    roof.castShadow = true;
+    g.add(roof);
+    // 4 corner posts
+    [-1,1].forEach(sx => [-1,1].forEach(sz => {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.12, 4, 8),
+        new THREE.MeshLambertMaterial({ color: 0x666666 })
+      );
+      post.position.set(sx*3.5, 2.0, sz*3.5);
+      g.add(post);
+    }));
+    // "GAS" sign
+    const sign = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6, 0.6, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0xddaa22 })
+    );
+    sign.position.set(0, 4.4, 4);
+    g.add(sign);
+    // Glowing ring (pulse)
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(2.0, 2.4, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.DoubleSide, transparent:true, opacity:0.5 })
+    );
+    ring.rotation.x = -Math.PI/2;
+    ring.position.y = 0.10;
+    g.add(ring);
+
+    g.position.set(s.x, 0, s.z);
+    scene.add(g);
+    gasMarkers.push({ pos: { x: s.x, z: s.z }, ring });
+  });
+}
+
+// Per-vehicle fuel (set when entered first time)
+function ensureVehicleFuel(v) {
+  if (v.fuel == null) v.fuel = FUEL_MAX;
+}
+
+// Taxi state
+const taxiState = {
+  active: false,        // Are we currently working a taxi mission?
+  phase: null,          // 'pickup' | 'dropoff'
+  passenger: { x:0, z:0, mesh:null }, // pickup point
+  destination: { x:0, z:0 }, // drop-off point
+  fare: 0,              // calculated fare in dollars
+  pickedUp: false,
+};
+
+let lastPosForFuel = null; // tracks player position for fuel drain calc
+
+function pickRandomCityPoint(minDist = 30) {
+  for (let i = 0; i < 20; i++) {
+    const x = (Math.random() - 0.5) * (WORLD - 20) * 2;
+    const z = (Math.random() - 0.5) * (WORLD - 20) * 2;
+    const d = Math.sqrt((x-pState.pos.x)**2 + (z-pState.pos.z)**2);
+    if (d > minDist) return { x, z };
+  }
+  return { x: pState.pos.x + 50, z: pState.pos.z + 50 };
+}
+
+function startTaxiMission() {
+  if (taxiState.active) return;
+  const pickup  = pickRandomCityPoint(40);
+  const dropoff = pickRandomCityPoint(80);
+  // Distance-based fare
+  const dist = Math.sqrt((pickup.x-dropoff.x)**2 + (pickup.z-dropoff.z)**2);
+  taxiState.active = true;
+  taxiState.phase = 'pickup';
+  taxiState.passenger.x = pickup.x;
+  taxiState.passenger.z = pickup.z;
+  taxiState.destination.x = dropoff.x;
+  taxiState.destination.z = dropoff.z;
+  taxiState.fare = Math.floor(50 + dist * 1.2);
+  taxiState.pickedUp = false;
+
+  // Spawn passenger marker (cylinder + arrow)
+  if (taxiState.passenger.mesh) scene.remove(taxiState.passenger.mesh);
+  const m = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4, 0.4, 1.6, 8),
+    new THREE.MeshLambertMaterial({ color: 0xffaa00 })
+  );
+  body.position.y = 0.8;
+  m.add(body);
+  // Arrow above
+  const arrow = new THREE.Mesh(
+    new THREE.ConeGeometry(0.3, 0.6, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffd700 })
+  );
+  arrow.rotation.x = Math.PI;
+  arrow.position.y = 2.5;
+  m.add(arrow);
+  m.userData.arrow = arrow;
+  m.position.set(pickup.x, 0, pickup.z);
+  scene.add(m);
+  taxiState.passenger.mesh = m;
+
+  addFeed(`🚕 Pasajero esperando — ve por él (recompensa $${taxiState.fare})`);
+}
+
+function endTaxiMission(success) {
+  if (taxiState.passenger.mesh) {
+    scene.remove(taxiState.passenger.mesh);
+    taxiState.passenger.mesh = null;
+  }
+  if (success) {
+    pState.money += taxiState.fare;
+    pState.score += Math.floor(taxiState.fare / 5);
+    addFeed(`💵 Pasajero entregado — +$${taxiState.fare}`);
+    updateMoney();
+    document.getElementById('score-val').textContent = pState.score;
+  }
+  taxiState.active = false;
+  taxiState.phase = null;
+}
+
+function updateEconomy(dt) {
+  if (!gameRunning) return;
+
+  // ── Fuel drain while driving ──
+  if (driving) {
+    ensureVehicleFuel(driving);
+    if (lastPosForFuel) {
+      const dx = pState.pos.x - lastPosForFuel.x;
+      const dz = pState.pos.z - lastPosForFuel.z;
+      const d  = Math.sqrt(dx*dx + dz*dz);
+      driving.fuel = Math.max(0, driving.fuel - d * FUEL_DRAIN_PER_M);
+      if (driving.fuel <= 0) {
+        // Out of fuel — speed dies fast
+        driving.speed *= 0.92;
+      }
+    }
+    lastPosForFuel = { x: pState.pos.x, z: pState.pos.z };
+  } else {
+    lastPosForFuel = null;
+  }
+
+  // ── Gas station check ──
+  let atGasStation = null;
+  for (const gs of GAS_STATIONS) {
+    const dx = pState.pos.x - gs.x;
+    const dz = pState.pos.z - gs.z;
+    if (dx*dx + dz*dz < 25) { atGasStation = gs; break; }
+  }
+  // Pulse ring
+  for (const gm of gasMarkers) {
+    gm.ring.material.opacity = 0.35 + 0.25 * Math.sin(performance.now()*0.003);
+  }
+  // Refuel: if driving + at station + has money
+  if (driving && atGasStation && driving.fuel < FUEL_MAX && pState.money > 0) {
+    const cost = Math.min(pState.money, Math.ceil(2 * dt));
+    const fuelAdded = cost; // $1 = 1 unit
+    driving.fuel = Math.min(FUEL_MAX, driving.fuel + fuelAdded);
+    pState.money = Math.max(0, pState.money - cost);
+    updateMoney();
+  }
+
+  // ── Taxi mission state machine ──
+  if (driving && driving.isTaxi) {
+    if (!taxiState.active) {
+      // Start a new fare automatically when entering a taxi
+      startTaxiMission();
+    }
+    if (taxiState.phase === 'pickup' && !taxiState.pickedUp) {
+      const dx = pState.pos.x - taxiState.passenger.x;
+      const dz = pState.pos.z - taxiState.passenger.z;
+      if (dx*dx + dz*dz < 16) {
+        taxiState.pickedUp = true;
+        taxiState.phase = 'dropoff';
+        if (taxiState.passenger.mesh) {
+          scene.remove(taxiState.passenger.mesh);
+          taxiState.passenger.mesh = null;
+        }
+        // Drop-off marker
+        const m = new THREE.Group();
+        const body = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16),
+          new THREE.MeshBasicMaterial({ color: 0x44ff66 })
+        );
+        body.rotation.x = Math.PI/2;
+        body.position.y = 0.05;
+        m.add(body);
+        const beam = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.3, 8, 6, 1, true),
+          new THREE.MeshBasicMaterial({ color: 0x44ff66, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+        );
+        beam.position.y = 4;
+        m.add(beam);
+        m.position.set(taxiState.destination.x, 0, taxiState.destination.z);
+        scene.add(m);
+        taxiState.passenger.mesh = m;
+        addFeed(`🚕 Pasajero a bordo — llévalo al destino verde`);
+      }
+    } else if (taxiState.phase === 'dropoff') {
+      const dx = pState.pos.x - taxiState.destination.x;
+      const dz = pState.pos.z - taxiState.destination.z;
+      if (dx*dx + dz*dz < 16) {
+        endTaxiMission(true);
+      }
+    }
+  } else if (taxiState.active && !driving) {
+    // Cancel mission if we got out of the taxi
+    endTaxiMission(false);
+    addFeed('🚕 Misión de taxi cancelada');
+  }
+
+  // Animate passenger marker
+  if (taxiState.passenger.mesh && taxiState.passenger.mesh.userData.arrow) {
+    taxiState.passenger.mesh.userData.arrow.position.y = 2.5 + Math.sin(performance.now()*0.004) * 0.25;
+    taxiState.passenger.mesh.rotation.y += dt * 1.2;
+  }
+}
+
+// Fuel HUD update
+function updateFuelHUD() {
+  const wrap = document.getElementById('fuel-wrap');
+  if (!wrap) return;
+  if (!driving) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const bar = document.getElementById('fuel-bar');
+  const fuel = driving.fuel != null ? driving.fuel : FUEL_MAX;
+  bar.style.width = (fuel / FUEL_MAX * 100) + '%';
+  bar.style.background = fuel < 20 ? '#ff4444' : fuel < 50 ? '#ffaa22' : '#44dd66';
+  document.getElementById('fuel-val').textContent = Math.round(fuel);
+}
+
+
 const PROPERTIES_DATA = [
   { id:'casa1', name:'Casa Suburbana',  price:1200,  pos:{x: 70, z:-130}, color:0xc89e6a, accent:0x6d4c3e, w:14, d:14, h:6, type:'house' },
   { id:'casa2', name:'Casa Familiar',   price:2500,  pos:{x:-110, z: 60}, color:0xb5d4e0, accent:0x4a6c7c, w:16, d:14, h:7, type:'house' },
